@@ -218,7 +218,7 @@ def calculate_ellipse_metrics(contour: np.ndarray) -> Dict[str, float]:
 def count_protrusions(
     contour: np.ndarray, 
     hull: Optional[np.ndarray] = None,
-    threshold: float = 2.0
+    threshold: float = 5.0
 ) -> int:
     """
     Count protrusions in a contour using convex hull distance.
@@ -270,10 +270,44 @@ def count_protrusions(
             axis=1
         )
         
-        # Count points that exceed the threshold
-        protrusions = np.sum(distances > threshold)
+        # Identify potential protrusion regions by thresholding
+        protrusion_points = distances > threshold
         
-        return int(protrusions)
+        # Group adjacent points to count distinct protrusions
+        # This is a simple clustering approach that treats adjacent points as the same protrusion
+        # Find indices where protrusion_points is True
+        indices = np.where(protrusion_points)[0]
+        
+        if len(indices) == 0:
+            return 0
+        
+        # Identify distinct groups (protrusions) by finding gaps in the indices
+        # A gap larger than 5 indices indicates a separate protrusion
+        distinct_groups = []
+        current_group = [indices[0]]
+        
+        for i in range(1, len(indices)):
+            # If this index is close to the previous one, add to current group
+            # Considering wrap-around for periodic contours
+            prev_idx = indices[i-1]
+            curr_idx = indices[i]
+            contour_length = len(contour_points)
+            
+            # Calculate distance considering wrap-around
+            dist = min(abs(curr_idx - prev_idx), contour_length - abs(curr_idx - prev_idx))
+            
+            if dist <= 5:  # Adjust this threshold as needed for clustering
+                current_group.append(curr_idx)
+            else:
+                # Start a new group
+                distinct_groups.append(current_group)
+                current_group = [curr_idx]
+        
+        # Add the last group
+        if current_group:
+            distinct_groups.append(current_group)
+            
+        return len(distinct_groups)
     except Exception as e:
         logger.error(f"Error in counting protrusions: {str(e)}")
         return 0

@@ -41,7 +41,7 @@ def main():
     print("\n1. Saving circle masks...")
     
     # OpenCV circle
-    cv_circle = create_circle_mask(size=(256, 256), radius=50)
+    cv_circle = create_circle_mask(size=(512, 512), radius=100)
     np.save(output_dir / "circle_opencv.npy", cv_circle)
     save_mask_image(
         cv_circle, 
@@ -50,7 +50,7 @@ def main():
     )
     
     # Mathematical circle
-    math_circle = create_mathematical_circle(size=(256, 256), radius=50)
+    math_circle = create_mathematical_circle(size=(512, 512), radius=100)
     np.save(output_dir / "circle_mathematical.npy", math_circle)
     save_mask_image(
         math_circle, 
@@ -82,8 +82,8 @@ def main():
         minor_axis = int(major_axis / ratio)
         
         ellipse_mask = create_ellipse_mask(
-            size=(256, 256), 
-            axes=(major_axis, minor_axis)
+            size=(512, 512), 
+            axes=(major_axis*2, minor_axis*2)
         )
         
         np.save(output_dir / f"ellipse_{ratio}_1.npy", ellipse_mask)
@@ -107,10 +107,10 @@ def main():
     
     for count in protrusion_counts:
         shape_mask = create_shape_with_protrusions(
-            size=(256, 256),
-            radius=50,
+            size=(512, 512),
+            radius=100,
             num_protrusions=count,
-            protrusion_size=10,
+            protrusion_size=20,
             protrusion_distance=1.3
         )
         
@@ -135,8 +135,8 @@ def main():
     
     for noise in noise_levels:
         noisy_circle = create_circle_mask(
-            size=(256, 256),
-            radius=50,
+            size=(512, 512),
+            radius=100,
             noise=noise
         )
         
