@@ -9,7 +9,9 @@ A Python package for analyzing morphological features of organoid segmentations.
   - Area, perimeter, roundness
   - Ellipticity and orientation
   - Convexity and solidity 
-  - Protrusion detection
+  - Advanced protrusion detection and analysis
+- Batch processing with multi-core support
+- Detailed visualizations for metric calculation
 - Command-line interface for easy usage
 - Cross-platform (macOS, Linux)
 
@@ -38,7 +40,7 @@ poetry run seg-ana analyze path/to/masks.npy --output results.csv
 poetry run seg-ana info path/to/masks.npy
 
 # Generate synthetic test data
-poetry run seg-ana generate test_masks.npy --num 50 --size 256
+poetry run seg-ana generate test_masks.npy --num 50 --size 512
 ```
 
 For help with any command:
@@ -46,6 +48,25 @@ For help with any command:
 ```bash
 poetry run seg-ana <command> --help
 ```
+
+### Batch Processing
+
+To analyze multiple mask files and generate visualizations:
+
+```bash
+# Process all .npy files in a directory
+python batch_analyze.py /path/to/mask/directory --output_dir ./results
+
+# Process with specific number of worker processes
+python batch_analyze.py /path/to/mask/directory --workers 4
+```
+
+This will:
+- Process all .npy files in the input directory
+- Calculate metrics for each mask
+- Generate detailed visualizations for each mask
+- Create a CSV with all metrics
+- Generate summary visualizations of the entire dataset
 
 ### Python API
 
@@ -63,6 +84,12 @@ metrics_list = analyze_batch(masks)
 first_mask_metrics = metrics_list[0]
 print(f"Area: {first_mask_metrics['area']}")
 print(f"Roundness: {first_mask_metrics['roundness']}")
+
+# Enhanced protrusion analysis
+from seg_ana.core.protrusion_analysis import analyze_all_protrusions
+protrusion_results = analyze_all_protrusions(
+    masks[0], visualize=True, output_dir="./protrusion_analysis"
+)
 ```
 
 ### Generating Test Data
@@ -73,10 +100,16 @@ To create synthetic data for testing or demonstration:
 from seg_ana.core.synthetic import create_test_dataset, save_test_dataset
 
 # Generate and save a dataset with 50 masks of different shapes
-save_test_dataset('test_masks.npy', n_masks=50)
+save_test_dataset('test_masks.npy', n_masks=50, size=(512, 512))
 
-# Or create directly in memory
-masks = create_test_dataset(n_masks=20, shape_types=['circle', 'ellipse'])
+# Create shapes with specific properties
+from seg_ana.core.synthetic import create_shape_with_protrusions
+shape = create_shape_with_protrusions(
+    size=(512, 512), 
+    radius=100, 
+    num_protrusions=6,
+    protrusion_size=25
+)
 ```
 
 ## Available Metrics
@@ -98,8 +131,30 @@ masks = create_test_dataset(n_masks=20, shape_types=['circle', 'ellipse'])
   - `convexity`: Ratio of convex hull perimeter to contour perimeter
   - `convex_hull_area`: Area of the convex hull
 
-- **Other**:
+- **Protrusion metrics**:
   - `protrusions`: Count of protrusions/extensions
+  - `protrusion_mean_length`: Average length of protrusions
+  - `protrusion_mean_width`: Average width of protrusions
+  - `protrusion_length_cv`: Coefficient of variation of protrusion lengths
+  - `protrusion_spacing_uniformity`: Measure of angular spacing uniformity (0-1)
+
+## Visualization Tools
+
+The package includes several visualization tools:
+
+```bash
+# Visualize metrics calculations
+python visualize_metrics.py
+
+# Test and visualize protrusion detection
+python test_protrusion_detection.py
+
+# Detailed protrusion analysis visualization
+python visualize_protrusions.py
+
+# Compare isolated protrusion detection with standard method
+python test_isolated_protrusions.py
+```
 
 ## Performance Notes
 
@@ -107,6 +162,7 @@ This package is optimized for:
 - In-memory processing of segmentation masks
 - Efficiency on standard hardware (8-16 GB RAM)
 - Vectorized operations using NumPy and OpenCV
+- Parallel processing of multiple masks
 
 ## Development
 
@@ -125,16 +181,24 @@ seg_ana/
 ├── src/
 │   └── seg_ana/
 │       ├── core/
-│       │   ├── loader.py      # Loading and preprocessing masks
-│       │   ├── metrics.py     # Morphological metrics calculation
-│       │   └── synthetic.py   # Test data generation
+│       │   ├── loader.py            # Loading and preprocessing masks
+│       │   ├── metrics.py           # Basic metrics calculation
+│       │   ├── metrics_improved.py  # Enhanced metrics calculation
+│       │   ├── protrusion_analysis.py # Advanced protrusion analysis
+│       │   └── synthetic.py         # Test data generation
 │       └── cli/
-│           └── commands.py    # Command-line interface
+│           └── commands.py          # Command-line interface
 ├── tests/
 │   ├── core/
 │   └── cli/
-└── docs/
-    └── tech_doc.md           # Technical documentation
+├── docs/
+│   ├── tech_doc.md                  # Technical documentation
+│   ├── metrics_explanation.md       # Detailed metrics explanation
+│   └── progress_report_*.md         # Progress reports
+├── batch_analyze.py                 # Batch processing script
+├── visualize_metrics.py             # Metrics visualization
+├── test_protrusion_detection.py     # Protrusion detection testing
+└── visualize_protrusions.py         # Protrusion analysis visualization
 ```
 
 ## License
