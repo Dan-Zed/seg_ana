@@ -1,0 +1,33 @@
+[project]
+name = "seg-ana"
+version = "0.1.0"
+description = "for characterizing morphological features of organoid segmentations"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Daniel Ziemianowicz", email = "daniel@more.science"}
+]
+dependencies = [
+    "numpy>=1.26,<2.0",
+    "scikit-image>=0.22,<0.23",
+    "opencv-python-headless>=4.8,<5.0",
+    "pandas>=2.2,<3.0",
+    "matplotlib>=3.8,<4.0",
+    "scipy>=1.12,<2.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "jupyterlab>=4.0,<5.0"
+]
+
+[project.scripts]
+seg-ana = "seg_ana.cli.commands:main"
+
+[tool.poetry]
+packages = [{include = "seg_ana", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
