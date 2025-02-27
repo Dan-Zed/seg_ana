@@ -23,6 +23,7 @@ A perfect circle has these theoretical properties:
 - Solidity: 1.0 (no concavities)
 
 ```python
+# Using standard metrics
 from seg_ana.core.synthetic import create_circle_mask
 from seg_ana.core.metrics import calculate_all_metrics
 
@@ -36,6 +37,37 @@ print(f"Circle ellipticity: {metrics['ellipticity']}")  # Should be very close t
 print(f"Circle solidity: {metrics['solidity']}")  # Should be very close to 1.0
 ```
 
+### Using Improved Metrics
+
+For more accurate roundness calculations, use the improved metrics module:
+
+```python
+# Using improved metrics for better roundness calculation
+from seg_ana.core.synthetic import create_circle_mask
+from seg_ana.core.metrics_improved import calculate_all_metrics, create_mathematical_circle
+
+# Option 1: Create a circle using OpenCV and measure with improved metrics
+opencv_circle = create_circle_mask(size=(256, 256), radius=50, noise=0.0)
+metrics_opencv = calculate_all_metrics(opencv_circle)
+print(f"OpenCV circle roundness: {metrics_opencv['roundness']}")  # Should be 1.0
+
+# Option 2: Create a mathematically perfect circle for even better results
+math_circle = create_mathematical_circle(size=(256, 256), radius=50)
+metrics_math = calculate_all_metrics(math_circle)
+print(f"Mathematical circle roundness: {metrics_math['roundness']}")  # Should be exactly 1.0
+```
+
+### Comparing Standard vs. Improved Metrics
+
+To comprehensively compare the standard and improved metric calculations:
+
+```bash
+# Run the metrics comparison test
+python test_improved_metrics.py
+```
+
+This will generate a comparison of both approaches for circles with different radii and ellipses with different axis ratios, saving the results in the `improved_metrics_test` directory.
+
 ### Ellipses with Known Axis Ratios
 
 Ellipses have these theoretical properties:
@@ -44,6 +76,7 @@ Ellipses have these theoretical properties:
 
 ```python
 from seg_ana.core.synthetic import create_ellipse_mask
+from seg_ana.core.metrics_improved import calculate_all_metrics
 
 # Create an ellipse with 2:1 axis ratio
 ellipse_mask = create_ellipse_mask(size=(256, 256), axes=(60, 30))
@@ -63,6 +96,7 @@ Shapes with protrusions have these properties:
 
 ```python
 from seg_ana.core.synthetic import create_shape_with_protrusions
+from seg_ana.core.metrics_improved import calculate_all_metrics
 
 # Create a shape with exactly 5 protrusions
 shape_mask = create_shape_with_protrusions(
@@ -80,27 +114,66 @@ print(f"Solidity: {metrics['solidity']}")  # Lower for shapes with more protrusi
 print(f"Roundness: {metrics['roundness']}")  # Lower for shapes with protrusions
 ```
 
-### Random Polygon Shapes
+## Visualizing and Exporting Masks
 
-Random polygons have variable properties but can be used to test:
-- The range of possible values for different metrics
-- The relationships between metrics
+### Saving Mask Visualizations
+
+To visualize and export a variety of masks with their metrics:
+
+```bash
+# Generate and save a collection of masks
+python save_masks.py
+```
+
+This script creates a directory called `mask_exports` containing:
+- Circle masks created with different methods
+- Ellipses with different axis ratios
+- Shapes with varying numbers of protrusions
+- Circles with different noise levels
+- A summary visualization of all shapes
+
+### Validating Circles Specifically
+
+To focus on validating circle metrics and investigating the roundness calculation:
+
+```bash
+# Validate circle metrics and visualize results
+python validate_circles.py
+```
+
+This creates a directory called `validation_output` with detailed visualizations and comparison of different circle creation methods.
+
+### Exporting Individual Masks
+
+You can export individual masks for closer inspection:
 
 ```python
-from seg_ana.core.synthetic import create_random_shape
+from seg_ana.core.validation import export_mask_visualization, save_mask_to_file
+from seg_ana.core.synthetic import create_circle_mask
 
-# Create a random polygon shape with controlled randomness
-shape_mask = create_random_shape(
-    size=(256, 256),
-    min_vertices=8,
-    max_vertices=12,
-    radius_range=(40, 60),
-    random_seed=42  # For reproducibility
-)
+# Create a mask
+circle_mask = create_circle_mask(size=(256, 256), radius=50)
 
-# Calculate metrics
-metrics = calculate_all_metrics(shape_mask)
-print(f"Random shape metrics: {metrics}")
+# Save visualization with metrics
+export_mask_visualization(circle_mask, "circle_viz.png")
+
+# Save raw mask data (NPY) and image (PNG)
+npy_path, png_path = save_mask_to_file(circle_mask, "circle_mask")
+```
+
+### Detailed Contour Analysis
+
+For an in-depth analysis of contour properties:
+
+```python
+from seg_ana.core.validation import export_mask_with_analyzed_contour
+from seg_ana.core.synthetic import create_circle_mask
+
+# Create a mask
+circle_mask = create_circle_mask(size=(256, 256), radius=50)
+
+# Export detailed contour analysis
+export_mask_with_analyzed_contour(circle_mask, "circle_analysis.png")
 ```
 
 ## Validation Workflow
@@ -110,15 +183,17 @@ print(f"Random shape metrics: {metrics}")
 ```python
 import numpy as np
 from seg_ana.core.synthetic import create_circle_mask, create_ellipse_mask
-from seg_ana.core.metrics import calculate_all_metrics
+from seg_ana.core.metrics_improved import calculate_all_metrics, create_mathematical_circle
 
 # Create shapes with known properties
-circle = create_circle_mask(size=(256, 256), radius=50)
+circle_opencv = create_circle_mask(size=(256, 256), radius=50)
+circle_math = create_mathematical_circle(size=(256, 256), radius=50)
 ellipse_2_1 = create_ellipse_mask(size=(256, 256), axes=(60, 30))  # 2:1 ratio
 ellipse_3_1 = create_ellipse_mask(size=(256, 256), axes=(90, 30))  # 3:1 ratio
 
 # Save for validation
-np.save('test_circle.npy', circle)
+np.save('test_circle_opencv.npy', circle_opencv)
+np.save('test_circle_math.npy', circle_math)
 np.save('test_ellipse_2_1.npy', ellipse_2_1)
 np.save('test_ellipse_3_1.npy', ellipse_3_1)
 ```
@@ -126,7 +201,8 @@ np.save('test_ellipse_3_1.npy', ellipse_3_1)
 ### 2. Run Analysis on These Shapes
 
 ```bash
-poetry run seg-ana analyze test_circle.npy --output circle_metrics.csv
+poetry run seg-ana analyze test_circle_opencv.npy --output opencv_metrics.csv
+poetry run seg-ana analyze test_circle_math.npy --output math_metrics.csv
 poetry run seg-ana analyze test_ellipse_2_1.npy --output ellipse_2_1_metrics.csv
 poetry run seg-ana analyze test_ellipse_3_1.npy --output ellipse_3_1_metrics.csv
 ```
@@ -160,7 +236,7 @@ For comprehensive validation, test each metric systematically with shapes of var
 import pandas as pd
 import numpy as np
 from seg_ana.core.synthetic import create_ellipse_mask
-from seg_ana.core.metrics import calculate_all_metrics
+from seg_ana.core.metrics_improved import calculate_all_metrics
 
 # Test ellipticity calculation with increasing axis ratios
 results = []
@@ -224,18 +300,22 @@ print(df)
 
 ## Tips for Effective Validation
 
-1. **Use random_seed for reproducibility**: When validating, always set a random seed to ensure you get the same shapes each time.
+1. **Use mathematical circles**: For perfect circle tests, use `create_mathematical_circle()` from the improved metrics module for the most accurate results.
 
-2. **Test edge cases**: Generate shapes with extreme properties (very elongated ellipses, shapes with many protrusions) to ensure the metrics handle these correctly.
+2. **Use improved metrics**: The `metrics_improved` module provides more accurate roundness calculations, especially for perfect shapes.
 
-3. **Create noisy shapes**: Use the `noise` parameter in shape creation to test how robust your metrics are to irregular boundaries.
+3. **Use random_seed for reproducibility**: When validating, always set a random seed to ensure you get the same shapes each time.
 
-4. **Compare related metrics**: Check relationships between metrics (e.g., as solidity decreases, roundness often decreases too).
+4. **Test edge cases**: Generate shapes with extreme properties (very elongated ellipses, shapes with many protrusions) to ensure the metrics handle these correctly.
 
-5. **Visualize the shapes**: It can be helpful to save and view the shapes alongside their metrics to verify your understanding.
+5. **Create noisy shapes**: Use the `noise` parameter in shape creation to test how robust your metrics are to irregular boundaries.
 
-6. **Batch test multiple parameters**: Create systematic variations to understand how each parameter affects the metrics.
+6. **Compare related metrics**: Check relationships between metrics (e.g., as solidity decreases, roundness often decreases too).
 
-7. **Document expected value ranges**: Based on your tests, document the expected ranges for each metric for your specific use case.
+7. **Visualize the shapes**: It can be helpful to save and view the shapes alongside their metrics to verify your understanding.
+
+8. **Batch test multiple parameters**: Create systematic variations to understand how each parameter affects the metrics.
+
+9. **Document expected value ranges**: Based on your tests, document the expected ranges for each metric for your specific use case.
 
 By using synthetic data with known properties, you can validate your metrics calculations and gain confidence in your analysis of real organoid segmentations.

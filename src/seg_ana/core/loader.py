@@ -84,23 +84,38 @@ def preprocess_masks(
     >>> raw_masks = load_npy_file('path/to/masks.npy')
     >>> processed = preprocess_masks(raw_masks, min_area=150)
     """
-    logger.info(f"Preprocessing {masks.shape[0]} masks")
+    logger.info(f"Preprocessing masks")
+    
+    # Validate array dimensions
+    if masks.ndim < 2:
+        raise ValueError(f"Expected at least 2D array, got {masks.ndim}D")
     
     # Make a copy to avoid modifying the original
-    processed = masks.copy()
-    
-    # Binarize if not already binary and threshold is provided
-    if binary_threshold is not None:
-        processed = processed > binary_threshold
+    if masks.ndim > 2:
+        processed = masks.copy()
+        # Binarize if not already binary and threshold is provided
+        if binary_threshold is not None:
+            processed = processed > binary_threshold
+        else:
+            # Convert to boolean if not already
+            processed = processed.astype(bool)
+        
+        # Remove small objects from each mask
+        for i in range(processed.shape[0]):
+            # Convert to uint8 for skimage.morphology compatibility
+            mask_bool = processed[i].astype(bool)
+            # Use a temporary array to avoid inplace modification issues
+            temp = remove_small_objects(mask_bool, min_area)
+            processed[i] = temp
     else:
-        # Convert to boolean if not already
-        processed = processed.astype(bool)
-    
-    # Remove small objects from each mask
-    for i in range(processed.shape[0]):
-        # Convert to bool to ensure skimage.morphology compatibility
-        mask_bool = processed[i].astype(bool)
-        processed[i] = remove_small_objects(mask_bool, min_area)
+        # Handle single mask case
+        if binary_threshold is not None:
+            processed = (masks > binary_threshold).astype(bool)
+        else:
+            processed = masks.astype(bool)
+        
+        # Remove small objects
+        processed = remove_small_objects(processed, min_area)
         
     logger.info(f"Preprocessing complete")
     return processed

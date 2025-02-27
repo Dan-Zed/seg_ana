@@ -17,7 +17,7 @@ def create_circle_mask(
     noise: float = 0.0
 ) -> np.ndarray:
     """
-    Create a circular binary mask.
+    Create a circular binary mask using OpenCV's drawing function.
     
     Parameters:
     -----------
@@ -73,6 +73,54 @@ def create_circle_mask(
             mask = noise_mask
     
     return mask
+
+
+def create_mathematical_circle(
+    size: Tuple[int, int] = (512, 512),
+    center: Optional[Tuple[int, int]] = None,
+    radius: int = 50
+) -> np.ndarray:
+    """
+    Create a mathematically perfect circle mask using distance calculation.
+    
+    This approach provides more accurate roundness metrics than OpenCV's drawing functions.
+    
+    Parameters:
+    -----------
+    size : tuple, default=(512, 512)
+        Size of the mask (height, width)
+    center : tuple, optional
+        Center coordinates (x, y). If None, uses the center of the image.
+    radius : int, default=50
+        Radius of the circle
+        
+    Returns:
+    --------
+    np.ndarray
+        Binary mask with a mathematically perfect circle
+        
+    Example:
+    --------
+    >>> mask = create_mathematical_circle(radius=30)
+    >>> from seg_ana.core.metrics import calculate_all_metrics
+    >>> metrics = calculate_all_metrics(mask)
+    >>> print(f"Roundness: {metrics['roundness']}")  # Should be 1.0
+    """
+    height, width = size
+    
+    if center is None:
+        center = (width // 2, height // 2)
+    
+    # Create coordinate grids
+    y, x = np.ogrid[:height, :width]
+    
+    # Calculate distance from center for each pixel
+    dist_from_center = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+    
+    # Create binary mask where distance <= radius
+    mask = dist_from_center <= radius
+    
+    return mask.astype(np.uint8)
 
 
 def create_ellipse_mask(
@@ -282,7 +330,8 @@ def create_test_dataset(
     n_masks: int = 100,
     size: Tuple[int, int] = (512, 512),
     shape_types: Optional[List[str]] = None,
-    random_seed: Optional[int] = None
+    random_seed: Optional[int] = None,
+    use_mathematical_circles: bool = True
 ) -> np.ndarray:
     """
     Generate a test dataset with multiple masks of different shapes.
@@ -298,6 +347,8 @@ def create_test_dataset(
         If None, includes all types.
     random_seed : int, optional
         Random seed for reproducibility
+    use_mathematical_circles : bool, default=True
+        Whether to use mathematical circles (more accurate) instead of OpenCV drawing
         
     Returns:
     --------
@@ -335,9 +386,14 @@ def create_test_dataset(
         if shape_type == 'circle':
             # Random radius
             radius = np.random.randint(30, 80)
-            # Random noise
-            noise = np.random.uniform(0, 0.3)
-            masks[i] = create_circle_mask(size, center, radius, noise)
+            
+            if use_mathematical_circles:
+                # Use mathematical circle for perfect roundness
+                masks[i] = create_mathematical_circle(size, center, radius)
+            else:
+                # Random noise
+                noise = np.random.uniform(0, 0.3)
+                masks[i] = create_circle_mask(size, center, radius, noise)
             
         elif shape_type == 'ellipse':
             # Random axes and angle
@@ -376,7 +432,8 @@ def save_test_dataset(
     n_masks: int = 100,
     size: Tuple[int, int] = (512, 512),
     shape_types: Optional[List[str]] = None,
-    random_seed: Optional[int] = None
+    random_seed: Optional[int] = None,
+    use_mathematical_circles: bool = True
 ) -> str:
     """
     Generate and save a test dataset to a NPY file.
@@ -394,6 +451,8 @@ def save_test_dataset(
         If None, includes all types.
     random_seed : int, optional
         Random seed for reproducibility
+    use_mathematical_circles : bool, default=True
+        Whether to use mathematical circles for more accurate roundness values
         
     Returns:
     --------
@@ -406,7 +465,13 @@ def save_test_dataset(
     >>> print(f"Saved to {path}")
     """
     # Generate dataset
-    masks = create_test_dataset(n_masks, size, shape_types, random_seed)
+    masks = create_test_dataset(
+        n_masks, 
+        size, 
+        shape_types, 
+        random_seed,
+        use_mathematical_circles
+    )
     
     # Save to file
     logger.info(f"Saving test dataset to {output_path}")

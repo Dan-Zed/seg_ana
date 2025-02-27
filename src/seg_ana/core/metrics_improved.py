@@ -1,8 +1,8 @@
 """
-Module for calculating morphological metrics from segmentation masks.
+Improved metrics calculation for segmentation masks.
 
-This module provides accurate metrics calculations for shape analysis,
-including optimized roundness calculations for perfect shapes.
+This module provides an alternative implementation of metric calculations
+with potentially more precise roundness calculations for perfect shapes.
 """
 import numpy as np
 import cv2
@@ -346,7 +346,7 @@ def calculate_convexity_metrics(
 
 def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
     """
-    Calculate all shape metrics for a single binary mask using optimized methods.
+    Calculate all shape metrics for a single binary mask using improved methods.
     
     Parameters:
     -----------
@@ -405,7 +405,7 @@ def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
 
 def analyze_batch(masks: np.ndarray) -> List[Dict[str, float]]:
     """
-    Analyze a batch of masks and calculate metrics for each.
+    Analyze a batch of masks and calculate improved metrics for each.
     
     Parameters:
     -----------
@@ -423,7 +423,7 @@ def analyze_batch(masks: np.ndarray) -> List[Dict[str, float]]:
     >>> results = analyze_batch(masks)
     >>> print(f"First mask area: {results[0]['area']:.2f}")
     """
-    logger.info(f"Analyzing batch of {masks.shape[0]} masks")
+    logger.info(f"Analyzing batch of {masks.shape[0]} masks with improved metrics")
     
     results = []
     for i, mask in enumerate(masks):
