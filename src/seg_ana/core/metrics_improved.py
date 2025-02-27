@@ -10,6 +10,14 @@ import logging
 from functools import lru_cache
 from typing import Dict, List, Tuple, Union, Optional
 
+# Import enhanced protrusion analysis module
+try:
+    from .protrusion_analysis import analyze_all_protrusions, summarize_protrusions
+    PROTRUSION_ANALYSIS_AVAILABLE = True
+except ImportError:
+    PROTRUSION_ANALYSIS_AVAILABLE = False
+    logging.warning("Enhanced protrusion analysis module not available")
+
 # set up logging
 logger = logging.getLogger(__name__)
 
@@ -431,8 +439,26 @@ def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
     metrics.update(calculate_ellipse_metrics(contour))
     metrics.update(calculate_convexity_metrics(contour, hull))
     
-    # Add protrusion count
-    metrics['protrusions'] = count_protrusions(contour, hull)
+    # Add protrusion count using either method
+    if PROTRUSION_ANALYSIS_AVAILABLE:
+        # Use the enhanced protrusion analysis method if available
+        try:
+            protrusion_results = analyze_all_protrusions(mask_bin)
+            protrusion_summary = summarize_protrusions(protrusion_results)
+            
+            # Add the enhanced protrusion metrics
+            metrics['protrusions'] = protrusion_summary['protrusion_count']
+            metrics['protrusion_mean_length'] = protrusion_summary['mean_length']
+            metrics['protrusion_mean_width'] = protrusion_summary['mean_width']
+            metrics['protrusion_length_cv'] = protrusion_summary['length_cv']
+            metrics['protrusion_spacing_uniformity'] = protrusion_summary['spacing_uniformity']
+        except Exception as e:
+            # Fall back to the original method if there's an error
+            logger.warning(f"Error in enhanced protrusion analysis: {str(e)}")
+            metrics['protrusions'] = count_protrusions(contour, hull)
+    else:
+        # Use the original method
+        metrics['protrusions'] = count_protrusions(contour, hull)
     
     return metrics
 
