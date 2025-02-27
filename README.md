@@ -51,14 +51,12 @@ poetry run seg-ana <command> --help
 
 ### Batch Processing
 
-To analyze multiple mask files and generate visualizations:
-
 ```bash
 # Process all .npy files in a directory
-python batch_analyze.py /path/to/mask/directory --output_dir ./results
+python scripts/batch_analyze.py /path/to/mask/directory --output_dir ./results
 
 # Process with specific number of worker processes
-python batch_analyze.py /path/to/mask/directory --workers 4
+python scripts/batch_analyze.py /path/to/mask/directory --workers 4
 ```
 
 This will:
@@ -112,6 +110,18 @@ shape = create_shape_with_protrusions(
 )
 ```
 
+## Examples
+
+Check out the `examples/` directory for sample scripts:
+
+```bash
+# Run basic analysis example
+python examples/basic_analysis.py
+
+# Run batch processing example
+python examples/batch_processing.py
+```
+
 ## Available Metrics
 
 - **Basic metrics**: 
@@ -140,20 +150,20 @@ shape = create_shape_with_protrusions(
 
 ## Visualization Tools
 
-The package includes several visualization tools:
+The package includes several visualization tools in the `scripts` directory:
 
 ```bash
 # Visualize metrics calculations
-python visualize_metrics.py
+python scripts/visualize_metrics.py
 
 # Test and visualize protrusion detection
-python test_protrusion_detection.py
+python scripts/test_protrusion_detection.py
 
 # Detailed protrusion analysis visualization
-python visualize_protrusions.py
+python scripts/visualize_protrusions.py
 
 # Compare isolated protrusion detection with standard method
-python test_isolated_protrusions.py
+python scripts/test_isolated_protrusions.py
 ```
 
 ## Performance Notes
@@ -178,6 +188,15 @@ poetry run pytest
 
 ```
 seg_ana/
+├── examples/                 # Example usage scripts
+│   ├── basic_analysis.py     # Simple analysis example
+│   └── batch_processing.py   # Batch processing example
+├── outputs/                  # Output directory for tests and visualizations
+├── scripts/                  # Utility scripts
+│   ├── batch_analyze.py      # Batch processing script
+│   ├── visualize_metrics.py  # Metrics visualization
+│   ├── test_protrusion_detection.py # Protrusion detection testing
+│   └── visualize_protrusions.py     # Protrusion analysis visualization
 ├── src/
 │   └── seg_ana/
 │       ├── core/
@@ -191,14 +210,10 @@ seg_ana/
 ├── tests/
 │   ├── core/
 │   └── cli/
-├── docs/
-│   ├── tech_doc.md                  # Technical documentation
-│   ├── metrics_explanation.md       # Detailed metrics explanation
-│   └── progress_report_*.md         # Progress reports
-├── batch_analyze.py                 # Batch processing script
-├── visualize_metrics.py             # Metrics visualization
-├── test_protrusion_detection.py     # Protrusion detection testing
-└── visualize_protrusions.py         # Protrusion analysis visualization
+└── docs/
+    ├── tech_doc.md                  # Technical documentation
+    ├── metrics_explanation.md       # Detailed metrics explanation
+    └── progress_report_*.md         # Progress reports
 ```
 
 ## License
