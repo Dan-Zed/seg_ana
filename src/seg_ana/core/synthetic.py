@@ -52,7 +52,7 @@ def create_circle_mask(
     
     # Add noise if requested
     if noise > 0:
-        # Generate noise around the perimeter
+        # Get contour of the circle
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         if contours:
             contour = contours[0]
@@ -70,6 +70,18 @@ def create_circle_mask(
             # Create new mask from noisy contour
             noise_mask = np.zeros_like(mask)
             cv2.drawContours(noise_mask, [contour], 0, 1, -1)
+            
+            # Fill any holes created by the contour drawing
+            # Find all external contours in the noisy mask
+            all_contours, _ = cv2.findContours(noise_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Draw filled contours
+            cv2.drawContours(noise_mask, all_contours, -1, 1, -1)
+            
+            # Apply a slight smoothing/closing operation to remove jagged edges
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            noise_mask = cv2.morphologyEx(noise_mask, cv2.MORPH_CLOSE, kernel)
+            
             mask = noise_mask
     
     return mask
@@ -187,6 +199,14 @@ def create_ellipse_mask(
             # Create new mask from noisy contour
             noise_mask = np.zeros_like(mask)
             cv2.drawContours(noise_mask, [contour], 0, 1, -1)
+            
+            # Fill holes and smooth edges like in create_circle_mask
+            all_contours, _ = cv2.findContours(noise_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(noise_mask, all_contours, -1, 1, -1)
+            
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            noise_mask = cv2.morphologyEx(noise_mask, cv2.MORPH_CLOSE, kernel)
+            
             mask = noise_mask
     
     return mask
@@ -247,8 +267,20 @@ def create_shape_with_protrusions(
     for i in range(num_protrusions):
         # Calculate angle and position
         angle = i * (2 * np.pi / num_protrusions)
-        x = int(center[0] + radius * protrusion_distance * np.cos(angle))
-        y = int(center[1] + radius * protrusion_distance * np.sin(angle))
+        protrusion_radius_factor = protrusion_distance  # Distance factor for protrusion center
+        
+        # Calculate protrusion center
+        x = int(center[0] + radius * protrusion_radius_factor * np.cos(angle))
+        y = int(center[1] + radius * protrusion_radius_factor * np.sin(angle))
+        
+        # Create connecting arm from main circle to protrusion
+        # Calculate intermediate points to create a connecting arm
+        arm_start_x = int(center[0] + radius * np.cos(angle))
+        arm_start_y = int(center[1] + radius * np.sin(angle))
+        
+        # Draw connecting arm (line with thickness)
+        thickness = int(protrusion_size * 0.7)  # Make the arm proportional to protrusion size
+        cv2.line(mask, (arm_start_x, arm_start_y), (x, y), 1, thickness)
         
         # Add a circle at the protrusion position
         cv2.circle(mask, (x, y), protrusion_size, 1, -1)
