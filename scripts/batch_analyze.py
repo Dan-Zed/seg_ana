@@ -163,7 +163,9 @@ def visualize_mask_analysis(mask, metrics, output_path):
     metrics_text += "Basic Shape Metrics:\n"
     metrics_text += f"• Area: {metrics.get('area', 'N/A'):.1f} pixels²\n"
     metrics_text += f"• Perimeter: {metrics.get('perimeter', 'N/A'):.1f} pixels\n"
-    metrics_text += f"• Roundness: {metrics.get('roundness', 'N/A'):.4f}\n"
+    metrics_text += f"• Roundness (combined): {metrics.get('roundness', 'N/A'):.4f}\n"
+    metrics_text += f"• Roundness (original): {metrics.get('roundness_original', 'N/A'):.4f}\n"
+    metrics_text += f"• Roundness (equiv): {metrics.get('roundness_equivalent', 'N/A'):.4f}\n"
     metrics_text += f"• Equivalent Diameter: {metrics.get('equivalent_diameter', 'N/A'):.1f} pixels\n\n"
     
     # Ellipse metrics
@@ -338,10 +340,10 @@ def create_summary_visualization(df, output_dir, timestamp):
     
     # Create histograms for key metrics
     metrics_to_plot = [
-        'roundness', 'ellipticity', 'solidity', 'protrusions'
+        'roundness', 'roundness_original', 'roundness_equivalent', 'ellipticity', 'solidity', 'protrusions'
     ]
     
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig, axes = plt.subplots(3, 2, figsize=(14, 15))
     axes = axes.flatten()
     
     for i, metric in enumerate(metrics_to_plot):

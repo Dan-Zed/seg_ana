@@ -64,15 +64,7 @@ def visualize_area_calculation():
     contour_points = contour.squeeze()
     ax.plot(contour_points[:, 0], contour_points[:, 1], 'r-', linewidth=2)
     
-    # Add text explanation
-    explanation = (
-        f"Area = {area:.1f} pixels²\n\n"
-        f"The area is the number of pixels\n"
-        f"enclosed by the contour.\n\n"
-        f"For a circle with radius r = 100:\n"
-        f"Theoretical area = πr² = {math.pi * 100**2:.1f}"
-    )
-    add_text_block(ax, explanation)
+    # No text explanation as per request
     
     # Draw a filled semi-transparent overlay
     filled_mask = np.zeros((512, 512, 4))
@@ -115,16 +107,7 @@ def visualize_perimeter_calculation():
     smooth_points = smooth_contour.squeeze()
     ax.plot(smooth_points[:, 0], smooth_points[:, 1], 'b-', linewidth=2, label='Smoothed contour')
     
-    # Add text explanation
-    explanation = (
-        f"Raw perimeter = {perimeter_raw:.1f} pixels\n"
-        f"Smoothed perimeter = {perimeter_smooth:.1f} pixels\n\n"
-        f"The perimeter is the length of the\n"
-        f"boundary around the object.\n\n"
-        f"For a circle with radius r = 100:\n"
-        f"Theoretical perimeter = 2πr = {2 * math.pi * 100:.1f}"
-    )
-    add_text_block(ax, explanation)
+    # No text explanation as per request
     
     # Add legend
     ax.legend(loc='lower right')
@@ -169,13 +152,10 @@ def visualize_roundness_calculation():
         "We choose the better of these two calculations."
     )
     
-    # Add a text box at the bottom spanning both subplots
-    fig.text(0.5, 0.01, explanation, ha='center', va='bottom', 
-             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4),
-             fontsize=12)
+    # No text box explanation as per request
     
     # Save the figure
-    plt.tight_layout(rect=[0, 0.1, 1, 0.95])  # Adjust for the bottom text
+    plt.tight_layout()
     plt.savefig(output_dir / "roundness_calculation.png", dpi=150)
     plt.close()
 
@@ -184,10 +164,11 @@ def visualize_ellipticity_calculation():
     """Visualize how ellipticity is calculated."""
     print("Generating ellipticity visualization...")
     
-    # Create ellipses with different aspect ratios
-    ellipse1_mask = create_ellipse_mask(size=(512, 512), axes=(100, 100))  # Circle (1:1)
-    ellipse2_mask = create_ellipse_mask(size=(512, 512), axes=(150, 75))   # 2:1 ratio
-    ellipse3_mask = create_ellipse_mask(size=(512, 512), axes=(180, 60))   # 3:1 ratio
+    # Create ellipses with different aspect ratios - always horizontal
+    # Using angle=0 ensures the major axis is horizontal and minor axis is vertical
+    ellipse1_mask = create_ellipse_mask(size=(512, 512), axes=(100, 100), angle=0)  # Circle (1:1)
+    ellipse2_mask = create_ellipse_mask(size=(512, 512), axes=(150, 75), angle=0)   # 2:1 ratio
+    ellipse3_mask = create_ellipse_mask(size=(512, 512), axes=(180, 60), angle=0)   # 3:1 ratio
     
     # Calculate metrics
     metrics1 = calculate_all_metrics(ellipse1_mask)
@@ -210,27 +191,28 @@ def visualize_ellipticity_calculation():
     
     # Add overlays to show major and minor axes
     def plot_axes(ax, mask, metrics):
-        # Get ellipse parameters from metrics
-        major = metrics['major_axis'] / 2
-        minor = metrics['minor_axis'] / 2
-        angle = metrics['orientation'] * np.pi / 180  # Convert to radians
+        # For our visualization, we want horizontal major axis and vertical minor axis
+        # regardless of how OpenCV fits the ellipse
         
         center = (mask.shape[1] // 2, mask.shape[0] // 2)
+        major = metrics['major_axis'] / 2
+        minor = metrics['minor_axis'] / 2
         
-        # Calculate endpoints of major axis
-        x1 = center[0] + major * np.cos(angle)
-        y1 = center[1] + major * np.sin(angle)
-        x2 = center[0] - major * np.cos(angle)
-        y2 = center[1] - major * np.sin(angle)
+        # Major axis (horizontal)
+        x1 = center[0] - major
+        y1 = center[1]
+        x2 = center[0] + major
+        y2 = center[1]
         
-        # Calculate endpoints of minor axis
-        x3 = center[0] + minor * np.cos(angle + np.pi/2)
-        y3 = center[1] + minor * np.sin(angle + np.pi/2)
-        x4 = center[0] - minor * np.cos(angle + np.pi/2)
-        y4 = center[1] - minor * np.sin(angle + np.pi/2)
+        # Minor axis (vertical)
+        x3 = center[0]
+        y3 = center[1] - minor
+        x4 = center[0]
+        y4 = center[1] + minor
         
-        # Plot axes
+        # Plot horizontal major axis in red
         ax.plot([x1, x2], [y1, y2], 'r-', linewidth=2, label='Major axis')
+        # Plot vertical minor axis in green
         ax.plot([x3, x4], [y3, y4], 'g-', linewidth=2, label='Minor axis')
         
         # Add length labels
@@ -254,17 +236,14 @@ def visualize_ellipticity_calculation():
         "using OpenCV's fitEllipse function."
     )
     
-    # Add a text box at the bottom spanning all subplots
-    fig.text(0.5, 0.01, explanation, ha='center', va='bottom', 
-             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4),
-             fontsize=12)
+    # No text box explanation as per request
     
     # Add a single legend for the entire figure
     handles, labels = ax1.get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
     # Save the figure
-    plt.tight_layout(rect=[0, 0.1, 1, 0.95])  # Adjust for the bottom text
+    plt.tight_layout()
     plt.savefig(output_dir / "ellipticity_calculation.png", dpi=150)
     plt.close()
 
@@ -343,17 +322,14 @@ def visualize_solidity_calculation():
         "The more concave a shape, the lower its solidity value."
     )
     
-    # Add a text box at the bottom spanning all subplots
-    fig.text(0.5, 0.01, explanation, ha='center', va='bottom', 
-             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4),
-             fontsize=12)
+    # No text box explanation as per request
     
     # Add a single legend for the entire figure
     handles, labels = ax1.get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
     # Save the figure
-    plt.tight_layout(rect=[0, 0.1, 1, 0.95])  # Adjust for the bottom text
+    plt.tight_layout()
     plt.savefig(output_dir / "solidity_calculation.png", dpi=150)
     plt.close()
 
@@ -434,28 +410,14 @@ def visualize_protrusion_calculation():
         ax3, shape3, f"6 Protrusions: {metrics3['protrusions']} detected"
     )
     
-    # Add explanation
-    explanation = (
-        "Protrusion Detection Process:\n\n"
-        "1. Calculate distance from each contour point to the convex hull\n"
-        "2. Points with distance > threshold (5.0) are potential protrusion points (red)\n"
-        "3. Group adjacent protrusion points into distinct protrusions\n"
-        "4. Count the number of distinct protrusion groups\n\n"
-        "This approach allows accurate counting of actual protrusions\n"
-        "while avoiding false positives from noisy contours."
-    )
-    
-    # Add a text box at the bottom spanning all subplots
-    fig.text(0.5, 0.01, explanation, ha='center', va='bottom', 
-             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4),
-             fontsize=12)
+    # No text box explanation as per request
     
     # Add a single legend for the entire figure
     handles, labels = ax3.get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
     # Save the figure
-    plt.tight_layout(rect=[0, 0.1, 1, 0.95])  # Adjust for the bottom text
+    plt.tight_layout()
     plt.savefig(output_dir / "protrusion_calculation.png", dpi=150)
     plt.close()
 
@@ -516,13 +478,10 @@ def visualize_comparison_perfect_vs_digital():
         "The zoomed insets show pixel-level differences in the boundary."
     )
     
-    # Add a text box at the bottom spanning both subplots
-    fig.text(0.5, 0.02, explanation, ha='center', va='bottom', 
-             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.4),
-             fontsize=12)
+    # No text box explanation as per request
     
     # Save the figure
-    plt.tight_layout(rect=[0, 0.15, 1, 0.95])  # Adjust for the bottom text
+    plt.tight_layout()
     plt.savefig(output_dir / "perfect_vs_digital_circle.png", dpi=150)
     plt.close()
 

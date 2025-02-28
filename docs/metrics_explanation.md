@@ -33,31 +33,40 @@ perimeter = cv2.arcLength(smooth_contour, True)
 - Measures the length of the boundary of the object.
 - For a perfect circle, perimeter = 2π * radius.
 
-### 3. Roundness
+### 3. Roundness Measures
 
-**How it's calculated:**
-Roundness is calculated in two ways, and we choose the better value:
+**How they're calculated:**
+Roundness is calculated in two different ways, and both measures are included in the output:
 
-1. Standard isoperimetric ratio: 4π * area / perimeter²
-2. Equivalent circle comparison: (perimeter of equivalent area circle) / (actual perimeter)
+1. **Original Roundness (roundness_original)**: Standard isoperimetric ratio
+   ```python
+   # Standard roundness formula using isoperimetric inequality
+   roundness_original = 4 * np.pi * area / (perimeter**2)
+   ```
 
-```python
-# Option 1: Standard roundness formula
-roundness_original = 4 * np.pi * area / (perimeter**2)
+2. **Equivalent Circle Roundness (roundness_equivalent)**: Ratio of perimeters
+   ```python
+   # Calculate diameter of a circle with the same area
+   equivalent_diameter = np.sqrt(4 * area / np.pi)
+   # Calculate perimeter of this equivalent circle
+   equiv_circle_perimeter = np.pi * equivalent_diameter
+   # Roundness based on perimeter comparison
+   roundness_equivalent = equiv_circle_perimeter / perimeter
+   ```
 
-# Option 2: Roundness based on equivalent circle
-equivalent_diameter = np.sqrt(4 * area / np.pi)
-equiv_circle_perimeter = np.pi * equivalent_diameter
-roundness_equivalent = equiv_circle_perimeter / perimeter
-
-# Choose the better measure (closer to 1.0 for a circle)
-roundness = max(roundness_original, roundness_equivalent)
-```
+3. **Combined Roundness (roundness)**: Maximum of the two measures
+   ```python
+   # Choose the better roundness measure (closer to 1.0 for a circle)
+   roundness = max(roundness_original, roundness_equivalent)
+   ```
 
 **Interpretation:**
-- Ranges from 0 to 1, where 1 represents a perfect circle.
+- All three measures range from 0 to 1, where 1 represents a perfect circle.
 - Lower values indicate more irregular or elongated shapes.
-- The isoperimetric inequality ensures that circles maximize this ratio (roundness = 1.0 for a perfect circle).
+- The isoperimetric inequality guarantees that circles maximize the original formula.
+- The equivalent circle measure often handles discretization effects better.
+- For most shapes, the two measures will be very close, but for shapes with complex boundaries or discretization artifacts, they may differ.
+- The combined measure (roundness) simply takes the maximum of the two, providing the most optimistic assessment of circularity.
 
 ### 4. Equivalent Diameter
 

@@ -151,6 +151,8 @@ def calculate_basic_metrics(contour: np.ndarray) -> Dict[str, float]:
         'area': area,
         'perimeter': perimeter,
         'roundness': roundness,
+        'roundness_original': roundness_original,
+        'roundness_equivalent': roundness_equivalent,
         'equivalent_diameter': equivalent_diameter
     }
 
