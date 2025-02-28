@@ -54,12 +54,24 @@ roundness_equivalent = equiv_circle_perimeter / perimeter
 roundness = max(roundness_original, roundness_equivalent)
 ```
 
-Values very close to 1.0 (within 0.05) are normalized to exactly 1.0.
-
 **Interpretation:**
 - Ranges from 0 to 1, where 1 represents a perfect circle.
 - Lower values indicate more irregular or elongated shapes.
 - The isoperimetric inequality ensures that circles maximize this ratio (roundness = 1.0 for a perfect circle).
+
+### 4. Equivalent Diameter
+
+**How it's calculated:**
+The equivalent diameter is the diameter of a circle with the same area as the shape:
+
+```python
+equivalent_diameter = np.sqrt(4 * area / np.pi)
+```
+
+**Interpretation:**
+- Represents the diameter of a circle that would have the same area as the shape.
+- Useful for comparing sizes of differently shaped objects.
+- For a circle, this equals the actual diameter.
 
 ## Ellipse Metrics
 
@@ -76,8 +88,6 @@ major_axis = max(axes)
 minor_axis = min(axes)
 ellipticity = major_axis / minor_axis
 ```
-
-Values very close to 1.0 (within 0.05) are normalized to exactly 1.0.
 
 **Interpretation:**
 - A value of 1.0 indicates a circle (major axis = minor axis).
@@ -130,8 +140,6 @@ hull_area = cv2.contourArea(hull)
 solidity = contour_area / hull_area
 ```
 
-Values very close to 1.0 (above 0.98) are normalized to exactly 1.0.
-
 **Interpretation:**
 - Ranges from 0 to 1, where 1 means the shape is completely convex (has no indentations).
 - Lower values indicate shapes with significant concavities or indentations.
@@ -179,6 +187,91 @@ indices = np.where(protrusion_points)[0]
 - Counts the number of distinct protrusions or "bumps" extending from the main body.
 - A circle has 0 protrusions.
 - Higher values indicate more complex, irregular shapes with multiple extensions.
+
+### 10. Enhanced Protrusion Metrics
+
+The following metrics provide more detailed analysis of protrusions using the improved morphological approach:
+
+#### 10.1 Protrusion Mean Length
+
+**How it's calculated:**
+After isolating individual protrusions, the length of each protrusion is measured from its connection to the main body to its tip. The mean length is then calculated:
+
+```python
+# For each protrusion
+length = distance_from_connection_to_tip
+
+# Calculate mean across all protrusions
+mean_length = np.mean([p['length'] for p in protrusions])
+```
+
+**Interpretation:**
+- Measures the average extent or reach of protrusions from the main body.
+- Larger values indicate longer, more pronounced protrusions.
+- Useful for distinguishing between short, stubby protrusions and long, thin ones.
+
+#### 10.2 Protrusion Mean Width
+
+**How it's calculated:**
+For each protrusion, the width is estimated as the shorter dimension of the minimum bounding rectangle. The mean width is calculated across all protrusions:
+
+```python
+# For each protrusion, calculate minimum width
+rect = cv2.minAreaRect(protrusion_contour)
+_, (width, height), _ = rect
+width = min(width, height)
+
+# Calculate mean across all protrusions
+mean_width = np.mean([p['width'] for p in protrusions])
+```
+
+**Interpretation:**
+- Measures the average thickness of protrusions.
+- Helps distinguish between thin, finger-like protrusions and broad extensions.
+- Combined with length, provides insight into the aspect ratio of protrusions.
+
+#### 10.3 Protrusion Length CV (Coefficient of Variation)
+
+**How it's calculated:**
+The coefficient of variation (CV) of protrusion lengths is calculated as the standard deviation divided by the mean:
+
+```python
+# Calculate length variability
+lengths = np.array([p['length'] for p in protrusions])
+length_cv = np.std(lengths) / mean_length if mean_length > 0 else 0
+```
+
+**Interpretation:**
+- Measures the uniformity of protrusion lengths.
+- A value of 0 indicates all protrusions are exactly the same length.
+- Higher values indicate greater variation in protrusion lengths.
+- Useful for distinguishing between shapes with uniform protrusions and those with varied protrusion lengths.
+
+#### 10.4 Protrusion Spacing Uniformity
+
+**How it's calculated:**
+This metric measures how evenly protrusions are spaced around the shape. It calculates the angular spacing between adjacent protrusions and evaluates their uniformity:
+
+```python
+# Sort protrusions by angle around the shape
+angles = np.sort([p['angle'] for p in protrusions])
+
+# Calculate angular differences (including wrap-around)
+diffs = np.diff(angles)
+diffs = np.append(diffs, 360 + angles[0] - angles[-1])
+
+# Calculate coefficient of variation of the differences
+angle_cv = np.std(diffs) / np.mean(diffs) if np.mean(diffs) > 0 else 0
+
+# Convert to a uniformity score (0-1)
+spacing_uniformity = 1 - min(angle_cv, 1.0)
+```
+
+**Interpretation:**
+- Ranges from 0 to 1, where 1 represents perfectly uniform spacing.
+- Lower values indicate protrusions clustered in certain regions.
+- Higher values indicate protrusions that are evenly distributed around the shape.
+- A value near 1.0 suggests a star-like shape with regular protrusions.
 
 ## Implementation Notes
 
