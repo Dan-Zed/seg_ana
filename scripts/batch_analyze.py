@@ -46,10 +46,10 @@ def visualize_mask_analysis(mask, metrics, output_path):
         Path to save the visualization
     """
     # Create a figure with subplots
-    fig = plt.figure(figsize=(15, 10))
+    fig = plt.figure(figsize=(15, 12))  # Increased height for more metrics
     
-    # Create layout: 2x3 grid for visualizations plus a text area
-    gs = fig.add_gridspec(2, 4)
+    # Create layout: 2x3 grid for visualizations plus two text areas
+    gs = fig.add_gridspec(3, 4)  # Added an extra row for more metrics
     
     # Extract mask name from output path
     mask_name = Path(output_path).stem
@@ -119,18 +119,32 @@ def visualize_mask_analysis(mask, metrics, output_path):
             # Remove the subplot if we can't fit an ellipse
             fig.delaxes(fig.add_subplot(gs[0, 3]))
     
-    # 5. Protrusion analysis (if available)
+    # 5. Skeleton visualization (new)
+    try:
+        # Get skeleton
+        from skimage.morphology import skeletonize
+        skeleton = skeletonize(mask > 0).astype(np.uint8) * 255
+        
+        ax5 = fig.add_subplot(gs[1, 0])
+        ax5.imshow(skeleton, cmap='gray')
+        ax5.set_title(f"Skeleton: {metrics.get('skeleton_branches', 'N/A')} branches")
+        ax5.axis('off')
+    except Exception as e:
+        logger.warning(f"Error in skeleton visualization: {str(e)}")
+        fig.delaxes(fig.add_subplot(gs[1, 0]))
+    
+    # 6. Protrusion analysis (if available)
     try:
         # Get body and protrusions
         body_mask, protrusion_masks, visualization = isolate_protrusions(mask)
         
-        ax5 = fig.add_subplot(gs[1, 0])
-        ax5.imshow(visualization)
-        ax5.set_title("Protrusion Analysis")
-        ax5.axis('off')
-        
-        # 6. Protrusions only
         ax6 = fig.add_subplot(gs[1, 1])
+        ax6.imshow(visualization)
+        ax6.set_title("Protrusion Analysis")
+        ax6.axis('off')
+        
+        # 7. Protrusions only
+        ax7 = fig.add_subplot(gs[1, 2])
         
         # Create a visualization of just the protrusions
         protrusions_only = np.zeros_like(visualization)
@@ -143,56 +157,88 @@ def visualize_mask_analysis(mask, metrics, output_path):
         # Ensure values are in valid range
         protrusions_only = np.clip(protrusions_only, 0, 255)
         
-        ax6.imshow(protrusions_only)
-        ax6.set_title(f"{len(protrusion_masks)} Protrusions Detected")
-        ax6.axis('off')
+        ax7.imshow(protrusions_only)
+        ax7.set_title(f"{len(protrusion_masks)} Protrusions Detected")
+        ax7.axis('off')
     except Exception as e:
         logger.warning(f"Error in protrusion analysis visualization: {str(e)}")
         # Remove the subplots if we can't do protrusion analysis
-        fig.delaxes(fig.add_subplot(gs[1, 0]))
         fig.delaxes(fig.add_subplot(gs[1, 1]))
+        fig.delaxes(fig.add_subplot(gs[1, 2]))
     
-    # Add metrics text box spanning the remaining area
-    ax_text = fig.add_subplot(gs[1, 2:])
-    ax_text.axis('off')
+    # 8. Fractal dimension visualization (new)
+    try:
+        # Get contour image
+        if contours:
+            contour_points = contour.squeeze()
+            x_min, y_min = np.min(contour_points, axis=0)
+            x_max, y_max = np.max(contour_points, axis=0)
+            
+            width = max(x_max - x_min, 1)
+            height = max(y_max - y_min, 1)
+            
+            contour_img = np.zeros((height, width), dtype=np.uint8)
+            adjusted_contour = contour_points - [x_min, y_min]
+            cv2.drawContours(contour_img, [adjusted_contour.astype(np.int32)], 0, 255, 1)
+            
+            ax8 = fig.add_subplot(gs[1, 3])
+            ax8.imshow(contour_img, cmap='gray')
+            ax8.set_title(f"Fractal Dim: {metrics.get('fractal_dimension', 'N/A'):.4f}")
+            ax8.axis('off')
+    except Exception as e:
+        logger.warning(f"Error in fractal dimension visualization: {str(e)}")
+        # Remove the subplot if we can't visualize fractal dimension
+        fig.delaxes(fig.add_subplot(gs[1, 3]))
     
-    # Format metrics for display
-    metrics_text = f"Metrics for: {mask_name}\n\n"
+    # Add metrics text box for basic metrics
+    ax_basic = fig.add_subplot(gs[2, 0:2])
+    ax_basic.axis('off')
+    
+    # Format basic metrics for display
+    basic_metrics_text = f"Basic Metrics for: {mask_name}\n\n"
     
     # Basic shape metrics
-    metrics_text += "Basic Shape Metrics:\n"
-    metrics_text += f"• Area: {metrics.get('area', 'N/A'):.1f} pixels²\n"
-    metrics_text += f"• Perimeter: {metrics.get('perimeter', 'N/A'):.1f} pixels\n"
-    metrics_text += f"• Roundness (combined): {metrics.get('roundness', 'N/A'):.4f}\n"
-    metrics_text += f"• Roundness (original): {metrics.get('roundness_original', 'N/A'):.4f}\n"
-    metrics_text += f"• Roundness (equiv): {metrics.get('roundness_equivalent', 'N/A'):.4f}\n"
-    metrics_text += f"• Equivalent Diameter: {metrics.get('equivalent_diameter', 'N/A'):.1f} pixels\n\n"
+    basic_metrics_text += "Basic Shape Metrics:\n"
+    basic_metrics_text += f"• Area: {metrics.get('area', 'N/A'):.1f} pixels²\n"
+    basic_metrics_text += f"• Perimeter: {metrics.get('perimeter', 'N/A'):.1f} pixels\n"
+    basic_metrics_text += f"• Roundness: {metrics.get('roundness_original', 'N/A'):.4f}\n"
+    basic_metrics_text += f"• Ellipticity: {metrics.get('ellipticity', 'N/A'):.4f}\n"
+    basic_metrics_text += f"• Solidity: {metrics.get('solidity', 'N/A'):.4f}\n"
+    basic_metrics_text += f"• Convexity: {metrics.get('convexity', 'N/A'):.4f}\n"
+    basic_metrics_text += f"• Protrusion Count: {metrics.get('protrusions', 'N/A')}\n"
+    basic_metrics_text += f"• Skeleton Complexity: {metrics.get('skeleton_complexity', 'N/A'):.4f}\n"
     
-    # Ellipse metrics
-    metrics_text += "Ellipse Metrics:\n"
-    metrics_text += f"• Ellipticity: {metrics.get('ellipticity', 'N/A'):.4f}\n"
-    metrics_text += f"• Major Axis: {metrics.get('major_axis', 'N/A'):.1f} pixels\n"
-    metrics_text += f"• Minor Axis: {metrics.get('minor_axis', 'N/A'):.1f} pixels\n"
-    metrics_text += f"• Orientation: {metrics.get('orientation', 'N/A'):.1f}°\n\n"
-    
-    # Convexity metrics
-    metrics_text += "Convexity Metrics:\n"
-    metrics_text += f"• Solidity: {metrics.get('solidity', 'N/A'):.4f}\n"
-    metrics_text += f"• Convexity: {metrics.get('convexity', 'N/A'):.4f}\n\n"
-    
-    # Protrusion metrics
-    metrics_text += "Protrusion Metrics:\n"
-    metrics_text += f"• Protrusion Count: {metrics.get('protrusions', 'N/A')}\n"
-    
-    # Add enhanced protrusion metrics if available
-    if 'protrusion_mean_length' in metrics:
-        metrics_text += f"• Mean Protrusion Length: {metrics.get('protrusion_mean_length', 'N/A'):.1f} pixels\n"
-        metrics_text += f"• Mean Protrusion Width: {metrics.get('protrusion_mean_width', 'N/A'):.1f} pixels\n"
-        metrics_text += f"• Length Variation (CV): {metrics.get('protrusion_length_cv', 'N/A'):.3f}\n"
-        metrics_text += f"• Spacing Uniformity: {metrics.get('protrusion_spacing_uniformity', 'N/A'):.3f}\n"
-    
-    ax_text.text(0, 1, metrics_text, fontsize=11, va='top', 
+    ax_basic.text(0, 1, basic_metrics_text, fontsize=11, va='top', 
                  fontfamily='monospace', linespacing=1.5)
+    
+    # Add metrics text box for experimental metrics
+    ax_exp = fig.add_subplot(gs[2, 2:4])
+    ax_exp.axis('off')
+    
+    # Format experimental metrics for display
+    exp_metrics_text = f"Experimental Metrics:\n\n"
+    
+    # Alternative roundness
+    exp_metrics_text += f"• Roundness (equiv): {metrics.get('roundness_equivalent', 'N/A'):.4f}\n"
+    exp_metrics_text += f"• Roundness (max): {metrics.get('roundness', 'N/A'):.4f}\n"
+    
+    # Skeleton metrics
+    exp_metrics_text += f"• Skeleton Branches: {metrics.get('skeleton_branches', 'N/A')}\n"
+    exp_metrics_text += f"• Skeleton Branch Length: {metrics.get('skeleton_branch_length_mean', 'N/A'):.1f}\n"
+    exp_metrics_text += f"• Skeleton Endpoints: {metrics.get('skeleton_endpoints', 'N/A')}\n"
+    
+    # Fractal metrics
+    exp_metrics_text += f"• Fractal Dimension: {metrics.get('fractal_dimension', 'N/A'):.4f}\n"
+    exp_metrics_text += f"• Boundary Entropy: {metrics.get('boundary_entropy', 'N/A'):.4f}\n"
+    
+    # Protrusion details
+    exp_metrics_text += f"• Protrusion Mean Length: {metrics.get('protrusion_mean_length', 'N/A'):.1f}\n"
+    exp_metrics_text += f"• Protrusion Mean Width: {metrics.get('protrusion_mean_width', 'N/A'):.1f}\n"
+    exp_metrics_text += f"• Protrusion Length CV: {metrics.get('protrusion_length_cv', 'N/A'):.3f}\n"
+    exp_metrics_text += f"• Protrusion Spacing: {metrics.get('protrusion_spacing_uniformity', 'N/A'):.3f}\n"
+    
+    ax_exp.text(0, 1, exp_metrics_text, fontsize=11, va='top', 
+                fontfamily='monospace', linespacing=1.5)
     
     # Add overall title
     fig.suptitle(f"Shape Analysis: {mask_name}", fontsize=16, y=0.98)
@@ -306,14 +352,32 @@ def batch_process(input_dir, output_dir, max_workers=None):
     # Convert results to DataFrame
     df = pd.DataFrame(results)
     
-    # Save to CSV
+    # Generate timestamp for filenames
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_path = output_dir / f"metrics_summary_{timestamp}.csv"
-    df.to_csv(csv_path, index=False)
     
-    logger.info(f"Results saved to {csv_path}")
+    # Define basic metrics and experimental metrics
+    basic_metrics = [
+        'filename', 'area', 'perimeter', 'equivalent_diameter',
+        'roundness_original', 'ellipticity', 'solidity', 'convexity',
+        'protrusions', 'skeleton_complexity'
+    ]
     
-    # Create a summary visualization
+    # Create basic metrics DataFrame
+    basic_df = df[basic_metrics].copy()
+    # Rename roundness_original to roundness for clarity
+    basic_df = basic_df.rename(columns={'roundness_original': 'roundness'})
+    
+    # Save basic metrics to CSV
+    basic_csv_path = output_dir / f"basic_metrics_{timestamp}.csv"
+    basic_df.to_csv(basic_csv_path, index=False)
+    logger.info(f"Basic metrics saved to {basic_csv_path}")
+    
+    # Save full metrics to CSV (experimental metrics)
+    full_csv_path = output_dir / f"experimental_metrics_{timestamp}.csv"
+    df.to_csv(full_csv_path, index=False)
+    logger.info(f"Experimental metrics saved to {full_csv_path}")
+    
+    # Create summary visualizations
     create_summary_visualization(df, output_dir, timestamp)
     
     return df
@@ -338,76 +402,138 @@ def create_summary_visualization(df, output_dir, timestamp):
     
     output_dir = Path(output_dir)
     
-    # Create histograms for key metrics
-    metrics_to_plot = [
-        'roundness', 'roundness_original', 'roundness_equivalent', 'ellipticity', 'solidity', 'protrusions'
+    # Create histograms for key basic metrics
+    basic_metrics = [
+        'roundness_original', 'ellipticity', 'solidity', 'convexity',
+        'protrusions', 'skeleton_complexity'
     ]
     
     fig, axes = plt.subplots(3, 2, figsize=(14, 15))
     axes = axes.flatten()
     
-    for i, metric in enumerate(metrics_to_plot):
+    for i, metric in enumerate(basic_metrics):
         if metric in df.columns:
             ax = axes[i]
             df[metric].hist(ax=ax, bins=20, alpha=0.7, color='steelblue')
-            ax.set_title(f'Distribution of {metric.capitalize()}')
+            title = 'Roundness' if metric == 'roundness_original' else metric.capitalize()
+            ax.set_title(f'Distribution of {title}')
             ax.set_xlabel(metric)
             ax.set_ylabel('Count')
             ax.grid(alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(output_dir / f"metrics_histogram_{timestamp}.png", dpi=150)
+    plt.savefig(output_dir / f"basic_metrics_histogram_{timestamp}.png", dpi=150)
+    plt.close()
+    
+    # Create histograms for experimental metrics
+    experimental_metrics = [
+        'roundness_equivalent', 'fractal_dimension', 'boundary_entropy',
+        'skeleton_branches', 'protrusion_mean_length', 'protrusion_spacing_uniformity'
+    ]
+    
+    fig, axes = plt.subplots(3, 2, figsize=(14, 15))
+    axes = axes.flatten()
+    
+    for i, metric in enumerate(experimental_metrics):
+        if metric in df.columns:
+            ax = axes[i]
+            df[metric].hist(ax=ax, bins=20, alpha=0.7, color='lightgreen')
+            # Format title nicely
+            title = metric.replace('_', ' ').title()
+            ax.set_title(f'Distribution of {title}')
+            ax.set_xlabel(metric)
+            ax.set_ylabel('Count')
+            ax.grid(alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / f"experimental_metrics_histogram_{timestamp}.png", dpi=150)
     plt.close()
     
     # Create a correlation matrix if we have enough samples
     if len(df) >= 5:
-        # Select only numeric columns
+        # Create two correlation matrices - one for basic metrics, one for all
+        
+        # Basic metrics correlation
+        basic_columns = [
+            'area', 'perimeter', 'roundness_original', 'ellipticity',
+            'solidity', 'convexity', 'protrusions', 'skeleton_complexity'
+        ]
+        basic_columns = [col for col in basic_columns if col in df.columns]
+        
+        basic_corr = df[basic_columns].corr()
+        
+        # Plot basic correlation matrix
+        plt.figure(figsize=(12, 10))
+        plt.imshow(basic_corr, cmap='coolwarm', vmin=-1, vmax=1)
+        
+        # Add correlation values
+        for i in range(len(basic_corr.columns)):
+            for j in range(len(basic_corr.columns)):
+                plt.text(j, i, f"{basic_corr.iloc[i, j]:.2f}",
+                         ha='center', va='center', color='white' if abs(basic_corr.iloc[i, j]) > 0.7 else 'black')
+        
+        plt.colorbar()
+        plt.xticks(range(len(basic_corr.columns)), basic_corr.columns, rotation=45, ha='right')
+        plt.yticks(range(len(basic_corr.columns)), basic_corr.columns)
+        plt.title('Correlation Matrix of Basic Shape Metrics')
+        
+        plt.tight_layout()
+        plt.savefig(output_dir / f"basic_correlation_matrix_{timestamp}.png", dpi=150)
+        plt.close()
+        
+        # Full metrics correlation - select only numeric columns
         numeric_df = df.select_dtypes(include=[np.number])
         
         # Calculate correlation matrix
         corr_matrix = numeric_df.corr()
         
-        # Plot correlation matrix
-        plt.figure(figsize=(12, 10))
+        # Plot full correlation matrix
+        plt.figure(figsize=(16, 14))
         plt.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
         
-        # Add correlation values
-        for i in range(len(corr_matrix.columns)):
-            for j in range(len(corr_matrix.columns)):
-                plt.text(j, i, f"{corr_matrix.iloc[i, j]:.2f}",
-                         ha='center', va='center', color='white' if abs(corr_matrix.iloc[i, j]) > 0.7 else 'black')
-        
+        # No text labels as there are too many metrics
         plt.colorbar()
-        plt.xticks(range(len(corr_matrix.columns)), corr_matrix.columns, rotation=45, ha='right')
-        plt.yticks(range(len(corr_matrix.columns)), corr_matrix.columns)
-        plt.title('Correlation Matrix of Shape Metrics')
+        plt.xticks(range(len(corr_matrix.columns)), corr_matrix.columns, rotation=90, fontsize=8)
+        plt.yticks(range(len(corr_matrix.columns)), corr_matrix.columns, fontsize=8)
+        plt.title('Correlation Matrix of All Metrics')
         
         plt.tight_layout()
-        plt.savefig(output_dir / f"correlation_matrix_{timestamp}.png", dpi=150)
+        plt.savefig(output_dir / f"full_correlation_matrix_{timestamp}.png", dpi=150)
         plt.close()
     
-    # Create a scatter plot of roundness vs. solidity
-    if 'roundness' in df.columns and 'solidity' in df.columns:
-        plt.figure(figsize=(10, 8))
-        plt.scatter(df['roundness'], df['solidity'], alpha=0.7)
-        
-        # Add labels for outlier points
-        for i, row in df.iterrows():
-            if row['roundness'] < 0.7 or row['solidity'] < 0.8:
-                plt.annotate(row['filename'], 
-                             (row['roundness'], row['solidity']),
-                             textcoords="offset points",
-                             xytext=(0, 5),
-                             ha='center')
-        
-        plt.xlabel('Roundness')
-        plt.ylabel('Solidity')
-        plt.title('Roundness vs. Solidity')
-        plt.grid(alpha=0.3)
-        
-        plt.tight_layout()
-        plt.savefig(output_dir / f"roundness_vs_solidity_{timestamp}.png", dpi=150)
-        plt.close()
+    # Create key scatter plots
+    scatter_pairs = [
+        ('roundness_original', 'solidity'),
+        ('ellipticity', 'roundness_original'),
+        ('protrusions', 'solidity'),
+        ('skeleton_complexity', 'fractal_dimension')
+    ]
+    
+    for x_metric, y_metric in scatter_pairs:
+        if x_metric in df.columns and y_metric in df.columns:
+            plt.figure(figsize=(10, 8))
+            plt.scatter(df[x_metric], df[y_metric], alpha=0.7)
+            
+            # Add labels for outlier points
+            for i, row in df.iterrows():
+                # Define what makes a point an outlier (can be customized)
+                is_outlier = np.abs(row[x_metric] - df[x_metric].mean()) > 1.5 * df[x_metric].std() or \
+                             np.abs(row[y_metric] - df[y_metric].mean()) > 1.5 * df[y_metric].std()
+                if is_outlier and 'filename' in row:
+                    plt.annotate(row['filename'], 
+                                 (row[x_metric], row[y_metric]),
+                                 textcoords="offset points",
+                                 xytext=(0, 5),
+                                 ha='center')
+            
+            plt.xlabel(x_metric.replace('_', ' ').title())
+            plt.ylabel(y_metric.replace('_', ' ').title())
+            plt.title(f'{y_metric.title()} vs. {x_metric.title()}')
+            plt.grid(alpha=0.3)
+            
+            plt.tight_layout()
+            plt.savefig(output_dir / f"{y_metric}_vs_{x_metric}_{timestamp}.png", dpi=150)
+            plt.close()
 
 
 def main():
