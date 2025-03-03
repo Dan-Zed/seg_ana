@@ -127,9 +127,9 @@ def calculate_basic_metrics(contour: np.ndarray) -> Dict[str, float]:
     perimeter = cv2.arcLength(smooth_contour, True)
     
     # Option 1: Standard roundness formula with original contour
-    roundness_original = 0.0
+    roundness = 0.0
     if perimeter > 0:
-        roundness_original = 4 * np.pi * area / (perimeter**2)
+        roundness = 4 * np.pi * area / (perimeter**2)
     
     # Option 2: Roundness based on equivalent circle
     # More mathematically sound for computer vision discretization issues
@@ -143,16 +143,21 @@ def calculate_basic_metrics(contour: np.ndarray) -> Dict[str, float]:
         if perimeter > 0:
             roundness_equivalent = equiv_circle_perimeter / perimeter
     
-    # Choose the better roundness measure (closer to 1.0 for a circle)
-    # This helps with discretization issues
-    roundness = max(roundness_original, roundness_equivalent)
+    # Create alternative roundness (max of both methods)
+    roundness_alt = max(roundness, roundness_equivalent)
+    if abs(roundness_alt - 1.0) < 0.01:
+        roundness_alt = 1.0
+    
+    # Normalize standard roundness if very close to 1.0
+    if abs(roundness - 1.0) < 0.01:
+        roundness = 1.0
     
     return {
         'area': area,
         'perimeter': perimeter,
-        'roundness': roundness,
-        'roundness_original': roundness_original,
-        'roundness_equivalent': roundness_equivalent,
+        'roundness': roundness,  # Standard 4π*area/perimeter² formula
+        'roundness_alt': roundness_alt,  # Max of both methods
+        'roundness_equivalent': roundness_equivalent,  # Circle perimeter ratio method
         'equivalent_diameter': equivalent_diameter
     }
 
@@ -197,12 +202,15 @@ def calculate_ellipse_metrics(contour: np.ndarray) -> Dict[str, float]:
         major_axis = max(axes)
         minor_axis = min(axes)
         
-        # Calculate ellipticity (ratio of major to minor axis)
+        # Calculate ellipticity (ratio of minor to major axis), resulting in 0-1 range
+        # where 1.0 is a perfect circle and values approach 0 for elongated shapes
         ellipticity = 0.0
-        if minor_axis > 0:
-            ellipticity = major_axis / minor_axis
+        if major_axis > 0:
+            ellipticity = minor_axis / major_axis
             
-            # Keep original ellipticity value without rounding to 1.0
+            # For nearly perfect circles, set ellipticity to exactly 1.0
+            if abs(ellipticity - 1.0) < 0.01:
+                ellipticity = 1.0
         
         return {
             'ellipticity': ellipticity,
@@ -234,7 +242,7 @@ def count_protrusions(
         Contour points from cv2.findContours
     hull : np.ndarray, optional
         Pre-computed convex hull, will compute if None
-    threshold : float, default=2.0
+    threshold : float, default=5.0
         Distance threshold for counting a point as a protrusion
         
     Returns:
@@ -368,7 +376,9 @@ def calculate_convexity_metrics(
     if hull_area > 0:
         solidity = contour_area / hull_area
         
-        # Keep original solidity value without rounding
+        # For shapes with very high solidity, round to 1.0
+        if abs(solidity - 1.0) < 0.01:
+            solidity = 1.0
     
     convexity = 0.0
     if contour_perimeter > 0:
@@ -414,6 +424,7 @@ def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
             'area': 0.0,
             'perimeter': 0.0,
             'roundness': 0.0,
+            'roundness_alt': 0.0,
             'equivalent_diameter': 0.0,
             'ellipticity': 0.0,
             'major_axis': 0.0,

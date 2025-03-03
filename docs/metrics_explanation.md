@@ -36,15 +36,21 @@ perimeter = cv2.arcLength(smooth_contour, True)
 ### 3. Roundness Measures
 
 **How they're calculated:**
-Roundness is calculated in two different ways, and both measures are included in the output:
+We calculate roundness using several different approaches:
 
-1. **Original Roundness (roundness_original)**: Standard isoperimetric ratio
+1. **Standard Roundness (`roundness`)**: Uses the standard isoperimetric ratio formula, which is the primary measure of roundness:
    ```python
    # Standard roundness formula using isoperimetric inequality
-   roundness_original = 4 * np.pi * area / (perimeter**2)
+   roundness = 4 * np.pi * area / (perimeter**2)
    ```
 
-2. **Equivalent Circle Roundness (roundness_equivalent)**: Ratio of perimeters
+2. **Alternative Roundness (`roundness_alt`)**: Maximum of the standard measure and the equivalent circle method - provides an optimistic assessment of circularity:
+   ```python
+   # Choose the better roundness measure (closer to 1.0 for a circle)
+   roundness_alt = max(roundness, roundness_equivalent)
+   ```
+
+3. **Equivalent Circle Roundness (`roundness_equivalent`)**: Based on the ratio of equivalent circle perimeter to actual perimeter:
    ```python
    # Calculate diameter of a circle with the same area
    equivalent_diameter = np.sqrt(4 * area / np.pi)
@@ -54,19 +60,13 @@ Roundness is calculated in two different ways, and both measures are included in
    roundness_equivalent = equiv_circle_perimeter / perimeter
    ```
 
-3. **Combined Roundness (roundness)**: Maximum of the two measures
-   ```python
-   # Choose the better roundness measure (closer to 1.0 for a circle)
-   roundness = max(roundness_original, roundness_equivalent)
-   ```
-
 **Interpretation:**
 - All three measures range from 0 to 1, where 1 represents a perfect circle.
 - Lower values indicate more irregular or elongated shapes.
-- The isoperimetric inequality guarantees that circles maximize the original formula.
+- The isoperimetric inequality guarantees that circles maximize the standard formula.
 - The equivalent circle measure often handles discretization effects better.
-- For most shapes, the two measures will be very close, but for shapes with complex boundaries or discretization artifacts, they may differ.
-- The combined measure (roundness) simply takes the maximum of the two, providing the most optimistic assessment of circularity.
+- For most shapes, the two approaches will be very close, but for shapes with complex boundaries or discretization artifacts, they may differ.
+- The alternative measure (`roundness_alt`) simply takes the maximum of the two, providing the most optimistic assessment of circularity.
 
 ### 4. Equivalent Diameter
 
@@ -84,10 +84,10 @@ equivalent_diameter = np.sqrt(4 * area / np.pi)
 
 ## Ellipse Metrics
 
-### 4. Ellipticity
+### 5. Ellipticity
 
 **How it's calculated:**
-Ellipticity is calculated by fitting an ellipse to the contour and taking the ratio of the major axis to the minor axis:
+Ellipticity is calculated by fitting an ellipse to the contour and taking the ratio of the minor axis to the major axis. This produces a value between 0 and 1, where 1 represents a perfect circle and values approach 0 for increasingly elongated shapes.
 
 ```python
 ellipse = cv2.fitEllipse(contour)
@@ -95,15 +95,18 @@ center, axes, angle = ellipse
 
 major_axis = max(axes)
 minor_axis = min(axes)
-ellipticity = major_axis / minor_axis
+ellipticity = minor_axis / major_axis
 ```
 
-**Interpretation:**
-- A value of 1.0 indicates a circle (major axis = minor axis).
-- Higher values indicate more elongated shapes.
-- For example, an ellipticity of 2.0 means the ellipse is twice as long in one direction as the other.
+Values very close to 1.0 (within 0.01) are normalized to exactly 1.0.
 
-### 5. Major and Minor Axes
+**Interpretation:**
+- A value of 1.0 indicates a circle (minor axis = major axis).
+- Lower values indicate more elongated shapes.
+- For example, an ellipticity of 0.5 means the shape is twice as long in one direction as the other.
+- This measure is inverse to the traditional aspect ratio, focusing on circularity (values closer to 1 mean more circular).
+
+### 6. Major and Minor Axes
 
 **How it's calculated:**
 These are obtained directly from the fitted ellipse parameters:
@@ -120,7 +123,7 @@ minor_axis = min(axes)
 - The minor axis is the shortest diameter of the fitted ellipse.
 - For a circle, both values are equal to the diameter.
 
-### 6. Orientation
+### 7. Orientation
 
 **How it's calculated:**
 The orientation is the angle of the major axis of the fitted ellipse, in degrees:
@@ -137,7 +140,7 @@ orientation = angle
 
 ## Convexity Metrics
 
-### 7. Solidity
+### 8. Solidity
 
 **How it's calculated:**
 Solidity is the ratio of the contour area to its convex hull area:
@@ -154,7 +157,7 @@ solidity = contour_area / hull_area
 - Lower values indicate shapes with significant concavities or indentations.
 - For example, a star shape would have lower solidity than a circle.
 
-### 8. Convexity
+### 9. Convexity
 
 **How it's calculated:**
 Convexity is the ratio of the convex hull perimeter to the contour perimeter:
@@ -172,7 +175,7 @@ convexity = hull_perimeter / contour_perimeter
 
 ## Protrusion Analysis
 
-### 9. Protrusion Count
+### 10. Protrusion Count
 
 **How it's calculated:**
 Protrusions are identified by analyzing the distance from each contour point to the convex hull. Points that are far from the hull (beyond a threshold) are grouped into distinct protrusions:
@@ -197,11 +200,11 @@ indices = np.where(protrusion_points)[0]
 - A circle has 0 protrusions.
 - Higher values indicate more complex, irregular shapes with multiple extensions.
 
-### 10. Enhanced Protrusion Metrics
+### 11. Enhanced Protrusion Metrics
 
 The following metrics provide more detailed analysis of protrusions using the improved morphological approach:
 
-#### 10.1 Protrusion Mean Length
+#### 11.1 Protrusion Mean Length
 
 **How it's calculated:**
 After isolating individual protrusions, the length of each protrusion is measured from its connection to the main body to its tip. The mean length is then calculated:
@@ -219,7 +222,7 @@ mean_length = np.mean([p['length'] for p in protrusions])
 - Larger values indicate longer, more pronounced protrusions.
 - Useful for distinguishing between short, stubby protrusions and long, thin ones.
 
-#### 10.2 Protrusion Mean Width
+#### 11.2 Protrusion Mean Width
 
 **How it's calculated:**
 For each protrusion, the width is estimated as the shorter dimension of the minimum bounding rectangle. The mean width is calculated across all protrusions:
@@ -239,7 +242,7 @@ mean_width = np.mean([p['width'] for p in protrusions])
 - Helps distinguish between thin, finger-like protrusions and broad extensions.
 - Combined with length, provides insight into the aspect ratio of protrusions.
 
-#### 10.3 Protrusion Length CV (Coefficient of Variation)
+#### 11.3 Protrusion Length CV (Coefficient of Variation)
 
 **How it's calculated:**
 The coefficient of variation (CV) of protrusion lengths is calculated as the standard deviation divided by the mean:
@@ -256,7 +259,7 @@ length_cv = np.std(lengths) / mean_length if mean_length > 0 else 0
 - Higher values indicate greater variation in protrusion lengths.
 - Useful for distinguishing between shapes with uniform protrusions and those with varied protrusion lengths.
 
-#### 10.4 Protrusion Spacing Uniformity
+#### 11.4 Protrusion Spacing Uniformity
 
 **How it's calculated:**
 This metric measures how evenly protrusions are spaced around the shape. It calculates the angular spacing between adjacent protrusions and evaluates their uniformity:
@@ -282,7 +285,7 @@ spacing_uniformity = 1 - min(angle_cv, 1.0)
 - Higher values indicate protrusions that are evenly distributed around the shape.
 - A value near 1.0 suggests a star-like shape with regular protrusions.
 
-### 11. Skeleton Metrics
+### 12. Skeleton Metrics
 
 **How they're calculated:**
 The skeleton is a 1-pixel-wide representation of the shape that preserves its topology, calculated using morphological thinning operations.
@@ -294,7 +297,7 @@ skeleton = skeletonize(mask > 0).astype(np.uint8)
 
 From this skeleton, several metrics are derived:
 
-#### 11.1 Skeleton Branches
+#### 12.1 Skeleton Branches
 
 **How it's calculated:**
 Branch points are identified as skeleton pixels with more than 2 neighbors. Endpoints have exactly 1 neighbor. The number of branches is estimated based on graph theory principles.
@@ -313,7 +316,7 @@ num_branches = max(0, num_endpoints/2 + num_branch_points - 1)
 - Higher values indicate more complex, branching structures.
 - Each protrusion typically contributes to the branch count.
 
-#### 11.2 Skeleton Complexity
+#### 12.2 Skeleton Complexity
 
 **How it's calculated:**
 The skeleton complexity normalizes the number of branches by the shape's size (approximated by twice the radius).
@@ -329,7 +332,7 @@ complexity = num_branches / max(1, 2 * radius)
 - Higher values indicate more intricate, branching structures per unit size.
 - A simple circle or ellipse has complexity of 0.
 
-#### 11.3 Skeleton Branch Length
+#### 12.3 Skeleton Branch Length
 
 **How it's calculated:**
 The mean branch length is estimated by dividing the total number of skeleton pixels by the number of branches.
@@ -345,7 +348,7 @@ mean_branch_length = skeleton_pixels / max(1, num_branches)
 - Longer branches typically indicate more elongated protrusions.
 - A shape with no branches will have this value undefined (reported as 0).
 
-### 12. Fractal Dimension
+### 13. Fractal Dimension
 
 **How it's calculated:**
 The fractal dimension is calculated using the box-counting method, which measures how the detail of a pattern changes with scale.
@@ -373,7 +376,7 @@ fractal_dimension = -slope
 - A very jagged, rough boundary approaches 2.0.
 - Provides a measure of boundary complexity that complements roundness and convexity.
 
-### 13. Boundary Entropy
+### 14. Boundary Entropy
 
 **How it's calculated:**
 Boundary entropy measures the unpredictability of curvature changes along the boundary by calculating the Shannon entropy of the curvature distribution.
@@ -395,13 +398,17 @@ entropy = -np.sum(histogram * np.log(histogram))
 - A shape with many different types of curves and angles has high boundary entropy.
 - Complements fractal dimension by focusing on the variability rather than complexity.
 
+## Implementation Notes
+
+### Discretization Effects
+
 When working with digital images, shapes are represented on a discrete pixel grid. This discretization can affect metric calculations, especially for small objects or metrics sensitive to boundary precision (like roundness).
 
 To mitigate these effects, we've implemented several strategies:
 
 1. **Contour smoothing**: For perimeter calculations, we slightly smooth the contour to reduce jagged pixel edges.
 
-2. **Dual roundness calculation**: We use two methods to calculate roundness and choose the better one.
+2. **Multiple roundness calculations**: We provide several methods to calculate roundness, each with its strengths.
 
 3. **Normalization**: Values very close to their theoretical perfect values (e.g., roundness or ellipticity near 1.0) are normalized to exactly match the theoretical value.
 
@@ -423,13 +430,18 @@ The protrusion detection algorithm has been refined to:
 
 3. **Consider the cyclic nature of contours** when grouping points, properly handling protrusions that cross the "seam" where the contour starts/ends.
 
+4. **Advanced morphological approach** has been added that:
+   - Isolates the main "body" of the shape using erosion
+   - Separates individual protrusions for detailed analysis
+   - Provides rich metrics about each protrusion
+
 ## Validation and Testing
 
 To ensure these metrics work correctly, we test them on synthetic shapes with known properties:
 
 1. **Perfect circles**: Should have roundness = 1.0, ellipticity = 1.0, solidity = 1.0, protrusions = 0.
 
-2. **Ellipses with specific axis ratios**: Should have ellipticity = major/minor axis ratio.
+2. **Ellipses with specific axis ratios**: Should have predictable ellipticity values.
 
 3. **Shapes with controlled numbers of protrusions**: Should detect approximately the right number of protrusions.
 

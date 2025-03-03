@@ -139,6 +139,10 @@ def calculate_basic_metrics(contour: np.ndarray) -> Dict[str, float]:
     # This helps with discretization issues
     roundness = max(roundness_original, roundness_equivalent)
     
+    # Normalize roundness for perfect circles
+    if abs(roundness - 1.0) < 0.01:
+        roundness = 1.0
+    
     return {
         'area': area,
         'perimeter': perimeter,
@@ -194,7 +198,9 @@ def calculate_ellipse_metrics(contour: np.ndarray) -> Dict[str, float]:
         if minor_axis > 0:
             ellipticity = major_axis / minor_axis
             
-            # Keep original ellipticity value without rounding to 1.0
+            # For nearly perfect circles, set ellipticity to exactly 1.0
+            if abs(ellipticity - 1.0) < 0.01:
+                ellipticity = 1.0
         
         return {
             'ellipticity': ellipticity,
@@ -326,7 +332,9 @@ def calculate_convexity_metrics(
     if hull_area > 0:
         solidity = contour_area / hull_area
         
-        # Keep original solidity value without rounding
+        # For shapes with very high solidity, round to 1.0
+        if abs(solidity - 1.0) < 0.01:
+            solidity = 1.0
     
     convexity = 0.0
     if contour_perimeter > 0:

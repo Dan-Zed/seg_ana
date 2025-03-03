@@ -32,6 +32,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def safe_format(value, fmt=".1f"):
+    """
+    Safely format a value, handling both numeric and non-numeric types.
+    
+    Parameters:
+    -----------
+    value : any
+        The value to format
+    fmt : str, default=".1f"
+        Format specification for numeric values
+        
+    Returns:
+    --------
+    str
+        Formatted string representation of the value
+    """
+    if isinstance(value, (int, float)):
+        return f"{value:{fmt}}"
+    return str(value)
+
+
 def visualize_mask_analysis(mask, metrics, output_path):
     """
     Create a comprehensive visualization of a mask and its metrics.
@@ -127,7 +148,9 @@ def visualize_mask_analysis(mask, metrics, output_path):
         
         ax5 = fig.add_subplot(gs[1, 0])
         ax5.imshow(skeleton, cmap='gray')
-        ax5.set_title(f"Skeleton: {metrics.get('skeleton_branches', 'N/A')} branches")
+        # Safely format the skeleton branches
+        branches = metrics.get('skeleton_branches', 'N/A')
+        ax5.set_title(f"Skeleton: {branches} branches")
         ax5.axis('off')
     except Exception as e:
         logger.warning(f"Error in skeleton visualization: {str(e)}")
@@ -183,7 +206,14 @@ def visualize_mask_analysis(mask, metrics, output_path):
             
             ax8 = fig.add_subplot(gs[1, 3])
             ax8.imshow(contour_img, cmap='gray')
-            ax8.set_title(f"Fractal Dim: {metrics.get('fractal_dimension', 'N/A'):.4f}")
+            # Safely format the fractal dimension
+            fractal_dim = metrics.get('fractal_dimension', 'N/A')
+            if isinstance(fractal_dim, (int, float)):
+                fractal_text = f"Fractal Dim: {fractal_dim:.4f}"
+            else:
+                fractal_text = f"Fractal Dim: {fractal_dim}"
+                
+            ax8.set_title(fractal_text)
             ax8.axis('off')
     except Exception as e:
         logger.warning(f"Error in fractal dimension visualization: {str(e)}")
@@ -199,14 +229,14 @@ def visualize_mask_analysis(mask, metrics, output_path):
     
     # Basic shape metrics
     basic_metrics_text += "Basic Shape Metrics:\n"
-    basic_metrics_text += f"• Area: {metrics.get('area', 'N/A'):.1f} pixels²\n"
-    basic_metrics_text += f"• Perimeter: {metrics.get('perimeter', 'N/A'):.1f} pixels\n"
-    basic_metrics_text += f"• Roundness: {metrics.get('roundness_original', 'N/A'):.4f}\n"
-    basic_metrics_text += f"• Ellipticity: {metrics.get('ellipticity', 'N/A'):.4f}\n"
-    basic_metrics_text += f"• Solidity: {metrics.get('solidity', 'N/A'):.4f}\n"
-    basic_metrics_text += f"• Convexity: {metrics.get('convexity', 'N/A'):.4f}\n"
-    basic_metrics_text += f"• Protrusion Count: {metrics.get('protrusions', 'N/A')}\n"
-    basic_metrics_text += f"• Skeleton Complexity: {metrics.get('skeleton_complexity', 'N/A'):.4f}\n"
+    basic_metrics_text += f"• Area: {safe_format(metrics.get('area', 'N/A'))} pixels²\n"
+    basic_metrics_text += f"• Perimeter: {safe_format(metrics.get('perimeter', 'N/A'))} pixels\n"
+    basic_metrics_text += f"• Roundness: {safe_format(metrics.get('roundness', 'N/A'), '.4f')}\n"
+    basic_metrics_text += f"• Ellipticity: {safe_format(metrics.get('ellipticity', 'N/A'), '.4f')}\n"
+    basic_metrics_text += f"• Solidity: {safe_format(metrics.get('solidity', 'N/A'), '.4f')}\n"
+    basic_metrics_text += f"• Convexity: {safe_format(metrics.get('convexity', 'N/A'), '.4f')}\n"
+    basic_metrics_text += f"• Protrusion Count: {safe_format(metrics.get('protrusions', 'N/A'), '')}\n"
+    basic_metrics_text += f"• Skeleton Complexity: {safe_format(metrics.get('skeleton_complexity', 'N/A'), '.4f')}\n"
     
     ax_basic.text(0, 1, basic_metrics_text, fontsize=11, va='top', 
                  fontfamily='monospace', linespacing=1.5)
@@ -219,23 +249,23 @@ def visualize_mask_analysis(mask, metrics, output_path):
     exp_metrics_text = f"Experimental Metrics:\n\n"
     
     # Alternative roundness
-    exp_metrics_text += f"• Roundness (equiv): {metrics.get('roundness_equivalent', 'N/A'):.4f}\n"
-    exp_metrics_text += f"• Roundness (max): {metrics.get('roundness', 'N/A'):.4f}\n"
+    exp_metrics_text += f"• Roundness (alt): {safe_format(metrics.get('roundness_alt', 'N/A'), '.4f')}\n"
+    exp_metrics_text += f"• Roundness (equiv): {safe_format(metrics.get('roundness_equivalent', 'N/A'), '.4f')}\n"
     
     # Skeleton metrics
-    exp_metrics_text += f"• Skeleton Branches: {metrics.get('skeleton_branches', 'N/A')}\n"
-    exp_metrics_text += f"• Skeleton Branch Length: {metrics.get('skeleton_branch_length_mean', 'N/A'):.1f}\n"
-    exp_metrics_text += f"• Skeleton Endpoints: {metrics.get('skeleton_endpoints', 'N/A')}\n"
+    exp_metrics_text += f"• Skeleton Branches: {safe_format(metrics.get('skeleton_branches', 'N/A'), '')}\n"
+    exp_metrics_text += f"• Skeleton Branch Length: {safe_format(metrics.get('skeleton_branch_length_mean', 'N/A'))}\n"
+    exp_metrics_text += f"• Skeleton Endpoints: {safe_format(metrics.get('skeleton_endpoints', 'N/A'), '')}\n"
     
     # Fractal metrics
-    exp_metrics_text += f"• Fractal Dimension: {metrics.get('fractal_dimension', 'N/A'):.4f}\n"
-    exp_metrics_text += f"• Boundary Entropy: {metrics.get('boundary_entropy', 'N/A'):.4f}\n"
+    exp_metrics_text += f"• Fractal Dimension: {safe_format(metrics.get('fractal_dimension', 'N/A'), '.4f')}\n"
+    exp_metrics_text += f"• Boundary Entropy: {safe_format(metrics.get('boundary_entropy', 'N/A'), '.4f')}\n"
     
     # Protrusion details
-    exp_metrics_text += f"• Protrusion Mean Length: {metrics.get('protrusion_mean_length', 'N/A'):.1f}\n"
-    exp_metrics_text += f"• Protrusion Mean Width: {metrics.get('protrusion_mean_width', 'N/A'):.1f}\n"
-    exp_metrics_text += f"• Protrusion Length CV: {metrics.get('protrusion_length_cv', 'N/A'):.3f}\n"
-    exp_metrics_text += f"• Protrusion Spacing: {metrics.get('protrusion_spacing_uniformity', 'N/A'):.3f}\n"
+    exp_metrics_text += f"• Protrusion Mean Length: {safe_format(metrics.get('protrusion_mean_length', 'N/A'))}\n"
+    exp_metrics_text += f"• Protrusion Mean Width: {safe_format(metrics.get('protrusion_mean_width', 'N/A'))}\n"
+    exp_metrics_text += f"• Protrusion Length CV: {safe_format(metrics.get('protrusion_length_cv', 'N/A'), '.3f')}\n"
+    exp_metrics_text += f"• Protrusion Spacing: {safe_format(metrics.get('protrusion_spacing_uniformity', 'N/A'), '.3f')}\n"
     
     ax_exp.text(0, 1, exp_metrics_text, fontsize=11, va='top', 
                 fontfamily='monospace', linespacing=1.5)
@@ -352,30 +382,43 @@ def batch_process(input_dir, output_dir, max_workers=None):
     # Convert results to DataFrame
     df = pd.DataFrame(results)
     
+    # Check if we have any valid results
+    if df.empty:
+        logger.warning("No results to save")
+        return df
+        
     # Generate timestamp for filenames
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Define basic metrics and experimental metrics
+    # Save all results to CSV first
+    full_csv_path = output_dir / f"all_metrics_{timestamp}.csv"
+    df.to_csv(full_csv_path, index=False)
+    logger.info(f"All results saved to {full_csv_path}")
+    
+    # Define basic metrics columns we want to extract
     basic_metrics = [
         'filename', 'area', 'perimeter', 'equivalent_diameter',
-        'roundness_original', 'ellipticity', 'solidity', 'convexity',
+        'roundness', 'ellipticity', 'solidity', 'convexity',
         'protrusions', 'skeleton_complexity'
     ]
     
-    # Create basic metrics DataFrame
-    basic_df = df[basic_metrics].copy()
-    # Rename roundness_original to roundness for clarity
-    basic_df = basic_df.rename(columns={'roundness_original': 'roundness'})
+    # Filter columns that actually exist
+    available_basic_metrics = [col for col in basic_metrics if col in df.columns]
     
-    # Save basic metrics to CSV
-    basic_csv_path = output_dir / f"basic_metrics_{timestamp}.csv"
-    basic_df.to_csv(basic_csv_path, index=False)
-    logger.info(f"Basic metrics saved to {basic_csv_path}")
-    
-    # Save full metrics to CSV (experimental metrics)
-    full_csv_path = output_dir / f"experimental_metrics_{timestamp}.csv"
-    df.to_csv(full_csv_path, index=False)
-    logger.info(f"Experimental metrics saved to {full_csv_path}")
+    if len(available_basic_metrics) > 1:  # At least filename and one metric
+        # Create basic metrics DataFrame with only available columns
+        basic_df = df[available_basic_metrics].copy()
+        
+        # Rename roundness_original to roundness for clarity if needed
+        if 'roundness_original' in basic_df.columns and 'roundness' not in basic_df.columns:
+            basic_df = basic_df.rename(columns={'roundness_original': 'roundness'})
+        
+        # Save basic metrics to CSV
+        basic_csv_path = output_dir / f"basic_metrics_{timestamp}.csv"
+        basic_df.to_csv(basic_csv_path, index=False)
+        logger.info(f"Basic metrics saved to {basic_csv_path}")
+    else:
+        logger.warning("Not enough valid metrics to create basic metrics file")
     
     # Create summary visualizations
     create_summary_visualization(df, output_dir, timestamp)
@@ -396,34 +439,53 @@ def create_summary_visualization(df, output_dir, timestamp):
     timestamp : str
         Timestamp string for filenames
     """
-    if df.empty or 'error' in df.columns:
+    if df.empty or 'error' in df.columns and len(df) == len(df['error'].dropna()):
         logger.warning("Cannot create summary visualizations due to errors or empty DataFrame")
         return
     
     output_dir = Path(output_dir)
     
+    # Get only numeric columns for visualization
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    if numeric_df.empty:
+        logger.warning("No numeric data available for summary visualizations")
+        return
+    
     # Create histograms for key basic metrics
     basic_metrics = [
-        'roundness_original', 'ellipticity', 'solidity', 'convexity',
+        'roundness', 'roundness_original', 'ellipticity', 'solidity', 'convexity',
         'protrusions', 'skeleton_complexity'
     ]
     
-    fig, axes = plt.subplots(3, 2, figsize=(14, 15))
-    axes = axes.flatten()
+    # Filter to only include columns that exist
+    available_basic_metrics = [m for m in basic_metrics if m in numeric_df.columns]
     
-    for i, metric in enumerate(basic_metrics):
-        if metric in df.columns:
+    if not available_basic_metrics:
+        logger.warning("No basic metrics available for histogram")
+    else:
+        rows = (len(available_basic_metrics) + 1) // 2  # Calculate needed rows
+        fig, axes = plt.subplots(rows, 2, figsize=(14, 5 * rows))
+        if rows == 1 and len(available_basic_metrics) == 1:
+            axes = np.array([axes])  # Handle single subplot case
+        axes = axes.flatten()
+        
+        for i, metric in enumerate(available_basic_metrics):
             ax = axes[i]
-            df[metric].hist(ax=ax, bins=20, alpha=0.7, color='steelblue')
-            title = 'Roundness' if metric == 'roundness_original' else metric.capitalize()
+            numeric_df[metric].hist(ax=ax, bins=20, alpha=0.7, color='steelblue')
+            title = 'Roundness' if metric == 'roundness_original' else metric.capitalize().replace('_', ' ')
             ax.set_title(f'Distribution of {title}')
             ax.set_xlabel(metric)
             ax.set_ylabel('Count')
             ax.grid(alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / f"basic_metrics_histogram_{timestamp}.png", dpi=150)
-    plt.close()
+        
+        # Remove unused subplots if any
+        for j in range(len(available_basic_metrics), len(axes)):
+            fig.delaxes(axes[j])
+        
+        plt.tight_layout()
+        plt.savefig(output_dir / f"basic_metrics_histogram_{timestamp}.png", dpi=150)
+        plt.close()
     
     # Create histograms for experimental metrics
     experimental_metrics = [
@@ -431,100 +493,120 @@ def create_summary_visualization(df, output_dir, timestamp):
         'skeleton_branches', 'protrusion_mean_length', 'protrusion_spacing_uniformity'
     ]
     
-    fig, axes = plt.subplots(3, 2, figsize=(14, 15))
-    axes = axes.flatten()
+    # Filter to only include columns that exist
+    available_exp_metrics = [m for m in experimental_metrics if m in numeric_df.columns]
     
-    for i, metric in enumerate(experimental_metrics):
-        if metric in df.columns:
+    if not available_exp_metrics:
+        logger.warning("No experimental metrics available for histogram")
+    else:
+        rows = (len(available_exp_metrics) + 1) // 2  # Calculate needed rows
+        fig, axes = plt.subplots(rows, 2, figsize=(14, 5 * rows))
+        
+        # Handle case of single subplot
+        if rows == 1 and len(available_exp_metrics) == 1:
+            axes = np.array([axes])
+        axes = axes.flatten()
+        
+        for i, metric in enumerate(available_exp_metrics):
             ax = axes[i]
-            df[metric].hist(ax=ax, bins=20, alpha=0.7, color='lightgreen')
+            numeric_df[metric].hist(ax=ax, bins=20, alpha=0.7, color='lightgreen')
             # Format title nicely
             title = metric.replace('_', ' ').title()
             ax.set_title(f'Distribution of {title}')
             ax.set_xlabel(metric)
             ax.set_ylabel('Count')
             ax.grid(alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(output_dir / f"experimental_metrics_histogram_{timestamp}.png", dpi=150)
-    plt.close()
+        
+        # Remove unused subplots if any
+        for j in range(len(available_exp_metrics), len(axes)):
+            fig.delaxes(axes[j])
+            
+        plt.tight_layout()
+        plt.savefig(output_dir / f"experimental_metrics_histogram_{timestamp}.png", dpi=150)
+        plt.close()
     
     # Create a correlation matrix if we have enough samples
-    if len(df) >= 5:
-        # Create two correlation matrices - one for basic metrics, one for all
-        
-        # Basic metrics correlation
+    if len(numeric_df) >= 5 and len(numeric_df.columns) >= 2:
+        # Basic metrics correlation - filter to only include available metrics
         basic_columns = [
-            'area', 'perimeter', 'roundness_original', 'ellipticity',
+            'area', 'perimeter', 'roundness', 'ellipticity',
             'solidity', 'convexity', 'protrusions', 'skeleton_complexity'
         ]
-        basic_columns = [col for col in basic_columns if col in df.columns]
+        available_basic_columns = [col for col in basic_columns if col in numeric_df.columns]
         
-        basic_corr = df[basic_columns].corr()
+        if len(available_basic_columns) >= 2:
+            basic_corr = numeric_df[available_basic_columns].corr()
+            
+            # Plot basic correlation matrix
+            plt.figure(figsize=(12, 10))
+            plt.imshow(basic_corr, cmap='coolwarm', vmin=-1, vmax=1)
+            
+            # Add correlation values
+            for i in range(len(basic_corr.columns)):
+                for j in range(len(basic_corr.columns)):
+                    plt.text(j, i, f"{basic_corr.iloc[i, j]:.2f}",
+                             ha='center', va='center', color='white' if abs(basic_corr.iloc[i, j]) > 0.7 else 'black')
+            
+            plt.colorbar()
+            plt.xticks(range(len(basic_corr.columns)), basic_corr.columns, rotation=45, ha='right')
+            plt.yticks(range(len(basic_corr.columns)), basic_corr.columns)
+            plt.title('Correlation Matrix of Basic Shape Metrics')
+            
+            plt.tight_layout()
+            plt.savefig(output_dir / f"basic_correlation_matrix_{timestamp}.png", dpi=150)
+            plt.close()
         
-        # Plot basic correlation matrix
-        plt.figure(figsize=(12, 10))
-        plt.imshow(basic_corr, cmap='coolwarm', vmin=-1, vmax=1)
-        
-        # Add correlation values
-        for i in range(len(basic_corr.columns)):
-            for j in range(len(basic_corr.columns)):
-                plt.text(j, i, f"{basic_corr.iloc[i, j]:.2f}",
-                         ha='center', va='center', color='white' if abs(basic_corr.iloc[i, j]) > 0.7 else 'black')
-        
-        plt.colorbar()
-        plt.xticks(range(len(basic_corr.columns)), basic_corr.columns, rotation=45, ha='right')
-        plt.yticks(range(len(basic_corr.columns)), basic_corr.columns)
-        plt.title('Correlation Matrix of Basic Shape Metrics')
-        
-        plt.tight_layout()
-        plt.savefig(output_dir / f"basic_correlation_matrix_{timestamp}.png", dpi=150)
-        plt.close()
-        
-        # Full metrics correlation - select only numeric columns
-        numeric_df = df.select_dtypes(include=[np.number])
-        
-        # Calculate correlation matrix
-        corr_matrix = numeric_df.corr()
-        
-        # Plot full correlation matrix
-        plt.figure(figsize=(16, 14))
-        plt.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
-        
-        # No text labels as there are too many metrics
-        plt.colorbar()
-        plt.xticks(range(len(corr_matrix.columns)), corr_matrix.columns, rotation=90, fontsize=8)
-        plt.yticks(range(len(corr_matrix.columns)), corr_matrix.columns, fontsize=8)
-        plt.title('Correlation Matrix of All Metrics')
-        
-        plt.tight_layout()
-        plt.savefig(output_dir / f"full_correlation_matrix_{timestamp}.png", dpi=150)
-        plt.close()
+        # Full correlation matrix - if we have enough metrics
+        if len(numeric_df.columns) >= 3:
+            # Calculate correlation matrix
+            corr_matrix = numeric_df.corr()
+            
+            # Plot full correlation matrix
+            plt.figure(figsize=(16, 14))
+            plt.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
+            
+            # No text labels as there are too many metrics
+            plt.colorbar()
+            plt.xticks(range(len(corr_matrix.columns)), corr_matrix.columns, rotation=90, fontsize=8)
+            plt.yticks(range(len(corr_matrix.columns)), corr_matrix.columns, fontsize=8)
+            plt.title('Correlation Matrix of All Metrics')
+            
+            plt.tight_layout()
+            plt.savefig(output_dir / f"full_correlation_matrix_{timestamp}.png", dpi=150)
+            plt.close()
     
     # Create key scatter plots
     scatter_pairs = [
-        ('roundness_original', 'solidity'),
-        ('ellipticity', 'roundness_original'),
+        ('roundness', 'solidity'),
+        ('ellipticity', 'roundness'),
         ('protrusions', 'solidity'),
         ('skeleton_complexity', 'fractal_dimension')
     ]
     
     for x_metric, y_metric in scatter_pairs:
-        if x_metric in df.columns and y_metric in df.columns:
+        if x_metric in numeric_df.columns and y_metric in numeric_df.columns:
             plt.figure(figsize=(10, 8))
-            plt.scatter(df[x_metric], df[y_metric], alpha=0.7)
+            plt.scatter(numeric_df[x_metric], numeric_df[y_metric], alpha=0.7)
             
-            # Add labels for outlier points
-            for i, row in df.iterrows():
-                # Define what makes a point an outlier (can be customized)
-                is_outlier = np.abs(row[x_metric] - df[x_metric].mean()) > 1.5 * df[x_metric].std() or \
-                             np.abs(row[y_metric] - df[y_metric].mean()) > 1.5 * df[y_metric].std()
-                if is_outlier and 'filename' in row:
-                    plt.annotate(row['filename'], 
-                                 (row[x_metric], row[y_metric]),
-                                 textcoords="offset points",
-                                 xytext=(0, 5),
-                                 ha='center')
+            # Add labels for outlier points if filename column exists
+            if 'filename' in df.columns:
+                for i, row in df.iterrows():
+                    if pd.isna(row.get(x_metric)) or pd.isna(row.get(y_metric)):
+                        continue
+                        
+                    # Define what makes a point an outlier (can be customized)
+                    x_mean, x_std = numeric_df[x_metric].mean(), numeric_df[x_metric].std()
+                    y_mean, y_std = numeric_df[y_metric].mean(), numeric_df[y_metric].std()
+                    
+                    is_outlier = (abs(row[x_metric] - x_mean) > 1.5 * x_std or 
+                                abs(row[y_metric] - y_mean) > 1.5 * y_std)
+                                
+                    if is_outlier:
+                        plt.annotate(row['filename'], 
+                                    (row[x_metric], row[y_metric]),
+                                    textcoords="offset points",
+                                    xytext=(0, 5),
+                                    ha='center')
             
             plt.xlabel(x_metric.replace('_', ' ').title())
             plt.ylabel(y_metric.replace('_', ' ').title())
