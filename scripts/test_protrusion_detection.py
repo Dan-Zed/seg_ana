@@ -8,7 +8,7 @@ import cv2
 from pathlib import Path
 
 from seg_ana.core.synthetic import create_shape_with_protrusions
-from seg_ana.core.metrics_improved import calculate_all_metrics
+from seg_ana.core.metrics import calculate_all_metrics
 
 # Create output directory
 output_dir = Path("./protrusion_test")

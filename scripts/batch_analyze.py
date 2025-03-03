@@ -17,7 +17,7 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
 
-from seg_ana.core.metrics_improved import calculate_all_metrics
+from seg_ana.core.metrics import calculate_all_metrics
 from seg_ana.core.protrusion_analysis import (
     analyze_all_protrusions, 
     summarize_protrusions,

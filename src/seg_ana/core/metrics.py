@@ -1,14 +1,22 @@
 """
-Module for calculating morphological metrics from segmentation masks.
+Improved metrics calculation for segmentation masks.
 
-This module provides accurate metrics calculations for shape analysis,
-including optimized roundness calculations for perfect shapes.
+This module provides an alternative implementation of metric calculations
+with potentially more precise roundness calculations for perfect shapes.
 """
 import numpy as np
 import cv2
 import logging
 from functools import lru_cache
 from typing import Dict, List, Tuple, Union, Optional
+
+# Import enhanced protrusion analysis module
+try:
+    from .protrusion_analysis import analyze_all_protrusions, summarize_protrusions
+    PROTRUSION_ANALYSIS_AVAILABLE = True
+except ImportError:
+    PROTRUSION_ANALYSIS_AVAILABLE = False
+    logging.warning("Enhanced protrusion analysis module not available")
 
 # set up logging
 logger = logging.getLogger(__name__)
@@ -119,9 +127,9 @@ def calculate_basic_metrics(contour: np.ndarray) -> Dict[str, float]:
     perimeter = cv2.arcLength(smooth_contour, True)
     
     # Option 1: Standard roundness formula with original contour
-    roundness_original = 0.0
+    roundness = 0.0
     if perimeter > 0:
-        roundness_original = 4 * np.pi * area / (perimeter**2)
+        roundness = 4 * np.pi * area / (perimeter**2)
     
     # Option 2: Roundness based on equivalent circle
     # More mathematically sound for computer vision discretization issues
@@ -135,20 +143,18 @@ def calculate_basic_metrics(contour: np.ndarray) -> Dict[str, float]:
         if perimeter > 0:
             roundness_equivalent = equiv_circle_perimeter / perimeter
     
-    # Choose the better roundness measure (closer to 1.0 for a circle)
-    # This helps with discretization issues
-    roundness = max(roundness_original, roundness_equivalent)
+    # Create alternative roundness (max of both methods)
+    roundness_alt = max(roundness, roundness_equivalent)
+    # No longer normalizing roundness_alt values that are close to 1.0
     
-    # Normalize roundness for perfect circles
-    if abs(roundness - 1.0) < 0.01:
-        roundness = 1.0
+    # No longer normalizing standard roundness values that are close to 1.0
     
     return {
         'area': area,
         'perimeter': perimeter,
-        'roundness': roundness,
-        'roundness_original': roundness_original,
-        'roundness_equivalent': roundness_equivalent,
+        'roundness': roundness,  # Standard 4π*area/perimeter² formula
+        'roundness_alt': roundness_alt,  # Max of both methods
+        'roundness_equivalent': roundness_equivalent,  # Circle perimeter ratio method
         'equivalent_diameter': equivalent_diameter
     }
 
@@ -193,14 +199,13 @@ def calculate_ellipse_metrics(contour: np.ndarray) -> Dict[str, float]:
         major_axis = max(axes)
         minor_axis = min(axes)
         
-        # Calculate ellipticity (ratio of major to minor axis)
+        # Calculate ellipticity (ratio of minor to major axis), resulting in 0-1 range
+        # where 1.0 is a perfect circle and values approach 0 for elongated shapes
         ellipticity = 0.0
-        if minor_axis > 0:
-            ellipticity = major_axis / minor_axis
+        if major_axis > 0:
+            ellipticity = minor_axis / major_axis
             
-            # For nearly perfect circles, set ellipticity to exactly 1.0
-            if abs(ellipticity - 1.0) < 0.01:
-                ellipticity = 1.0
+            # No longer normalizing ellipticity values that are close to 1.0
         
         return {
             'ellipticity': ellipticity,
@@ -221,7 +226,7 @@ def calculate_ellipse_metrics(contour: np.ndarray) -> Dict[str, float]:
 def count_protrusions(
     contour: np.ndarray, 
     hull: Optional[np.ndarray] = None,
-    threshold: float = 2.0
+    threshold: float = 5.0
 ) -> int:
     """
     Count protrusions in a contour using convex hull distance.
@@ -232,7 +237,7 @@ def count_protrusions(
         Contour points from cv2.findContours
     hull : np.ndarray, optional
         Pre-computed convex hull, will compute if None
-    threshold : float, default=2.0
+    threshold : float, default=5.0
         Distance threshold for counting a point as a protrusion
         
     Returns:
@@ -273,10 +278,44 @@ def count_protrusions(
             axis=1
         )
         
-        # Count points that exceed the threshold
-        protrusions = np.sum(distances > threshold)
+        # Identify potential protrusion regions by thresholding
+        protrusion_points = distances > threshold
         
-        return int(protrusions)
+        # Group adjacent points to count distinct protrusions
+        # This is a simple clustering approach that treats adjacent points as the same protrusion
+        # Find indices where protrusion_points is True
+        indices = np.where(protrusion_points)[0]
+        
+        if len(indices) == 0:
+            return 0
+        
+        # Identify distinct groups (protrusions) by finding gaps in the indices
+        # A gap larger than 5 indices indicates a separate protrusion
+        distinct_groups = []
+        current_group = [indices[0]]
+        
+        for i in range(1, len(indices)):
+            # If this index is close to the previous one, add to current group
+            # Considering wrap-around for periodic contours
+            prev_idx = indices[i-1]
+            curr_idx = indices[i]
+            contour_length = len(contour_points)
+            
+            # Calculate distance considering wrap-around
+            dist = min(abs(curr_idx - prev_idx), contour_length - abs(curr_idx - prev_idx))
+            
+            if dist <= 5:  # Adjust this threshold as needed for clustering
+                current_group.append(curr_idx)
+            else:
+                # Start a new group
+                distinct_groups.append(current_group)
+                current_group = [curr_idx]
+        
+        # Add the last group
+        if current_group:
+            distinct_groups.append(current_group)
+            
+        return len(distinct_groups)
     except Exception as e:
         logger.error(f"Error in counting protrusions: {str(e)}")
         return 0
@@ -332,9 +371,7 @@ def calculate_convexity_metrics(
     if hull_area > 0:
         solidity = contour_area / hull_area
         
-        # For shapes with very high solidity, round to 1.0
-        if abs(solidity - 1.0) < 0.01:
-            solidity = 1.0
+        # No longer normalizing solidity values that are close to 1.0
     
     convexity = 0.0
     if contour_perimeter > 0:
@@ -349,7 +386,7 @@ def calculate_convexity_metrics(
 
 def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
     """
-    Calculate all shape metrics for a single binary mask using optimized methods.
+    Calculate all shape metrics for a single binary mask using improved methods.
     
     Parameters:
     -----------
@@ -380,6 +417,7 @@ def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
             'area': 0.0,
             'perimeter': 0.0,
             'roundness': 0.0,
+            'roundness_alt': 0.0,
             'equivalent_diameter': 0.0,
             'ellipticity': 0.0,
             'major_axis': 0.0,
@@ -400,15 +438,33 @@ def calculate_all_metrics(mask: np.ndarray) -> Dict[str, float]:
     metrics.update(calculate_ellipse_metrics(contour))
     metrics.update(calculate_convexity_metrics(contour, hull))
     
-    # Add protrusion count
-    metrics['protrusions'] = count_protrusions(contour, hull)
+    # Add protrusion count using either method
+    if PROTRUSION_ANALYSIS_AVAILABLE:
+        # Use the enhanced protrusion analysis method if available
+        try:
+            protrusion_results = analyze_all_protrusions(mask_bin)
+            protrusion_summary = summarize_protrusions(protrusion_results)
+            
+            # Add the enhanced protrusion metrics
+            metrics['protrusions'] = protrusion_summary['protrusion_count']
+            metrics['protrusion_mean_length'] = protrusion_summary['mean_length']
+            metrics['protrusion_mean_width'] = protrusion_summary['mean_width']
+            metrics['protrusion_length_cv'] = protrusion_summary['length_cv']
+            metrics['protrusion_spacing_uniformity'] = protrusion_summary['spacing_uniformity']
+        except Exception as e:
+            # Fall back to the original method if there's an error
+            logger.warning(f"Error in enhanced protrusion analysis: {str(e)}")
+            metrics['protrusions'] = count_protrusions(contour, hull)
+    else:
+        # Use the original method
+        metrics['protrusions'] = count_protrusions(contour, hull)
     
     return metrics
 
 
 def analyze_batch(masks: np.ndarray) -> List[Dict[str, float]]:
     """
-    Analyze a batch of masks and calculate metrics for each.
+    Analyze a batch of masks and calculate improved metrics for each.
     
     Parameters:
     -----------
@@ -426,7 +482,7 @@ def analyze_batch(masks: np.ndarray) -> List[Dict[str, float]]:
     >>> results = analyze_batch(masks)
     >>> print(f"First mask area: {results[0]['area']:.2f}")
     """
-    logger.info(f"Analyzing batch of {masks.shape[0]} masks")
+    logger.info(f"Analyzing batch of {masks.shape[0]} masks with improved metrics")
     
     results = []
     for i, mask in enumerate(masks):

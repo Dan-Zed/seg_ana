@@ -16,7 +16,7 @@ from seg_ana.core.synthetic import (
     create_shape_with_protrusions,
     create_mathematical_circle
 )
-from seg_ana.core.metrics_improved import calculate_all_metrics
+from seg_ana.core.metrics import calculate_all_metrics
 from seg_ana.core.protrusion_analysis import (
     isolate_protrusions,
     analyze_all_protrusions,
